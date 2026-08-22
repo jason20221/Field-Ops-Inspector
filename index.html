@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0e12">
+<link rel="manifest" href="manifest.json">
+<title>Field Ops Inspector</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0e12;color:#f3f5f7;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+main{max-width:900px;margin:auto;padding:16px;display:grid;gap:14px}.card{background:#151a21;border:1px solid #2b323c;border-radius:20px;padding:16px}
+h1,h2{margin:0 0 6px}.muted{color:#9da7b3;font-size:13px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}
+button,input,textarea,select{font:inherit}.btn{border:0;border-radius:14px;padding:12px 14px;font-weight:750;background:#252d38;color:white}.primary{background:#3978f6}.danger{background:#431b22}.micbox{text-align:center;padding:28px 0 15px}
+#mic{width:205px;height:205px;border-radius:50%;border:0;background:#3978f6;color:white;font-size:76px;box-shadow:0 18px 50px #3978f655}#mic.on{background:#d94b52}
+#miclabel{font-weight:850;font-size:20px;margin-top:14px}.input,.textarea,.select{width:100%;background:#0f141a;border:1px solid #394350;color:white;border-radius:13px;padding:12px}.textarea{min-height:160px}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.tabs{display:flex;gap:8px}.tab.active{background:#3978f6}
+.tablewrap{overflow:auto;border:1px solid #29313b;border-radius:14px;margin-top:12px}table{border-collapse:collapse;min-width:100%;width:max-content;font-size:12px}th,td{padding:9px;border-bottom:1px solid #29313b;white-space:nowrap;text-align:left}.note{white-space:normal;min-width:180px}
+.hidden{display:none}.share{width:100%;font-size:18px;padding:17px}.good{color:#59d28d}.warn{color:#ffb94a}.bad{color:#ff777d}
+@media(max-width:600px){.actions{grid-template-columns:1fr}#mic{width:185px;height:185px}}
+</style></head>
+<body><main>
+<section class="card"><div class="row between"><div><h1>Field Ops Inspector</h1><div class="muted">Walk Mode · <span id="date"></span></div></div><div><span id="round">Round 1</span> · <span id="count">0 readings</span></div></div>
+<div class="micbox"><button id="mic">🎙️</button><div id="miclabel">TAP TO TALK</div><div id="speech" class="muted" style="margin-top:8px">Say an asset number and readings.</div></div>
+<div class="row"><input id="cmd" class="input" style="flex:1" placeholder="Fallback: type the same thing you would say"><button id="process" class="btn primary">Process</button></div>
+<div id="feedback" class="muted" style="margin-top:8px">Example: “211053 ambient 83 duct 56 return 78 blower trip warning.”</div></section>
+
+<section class="card"><div class="row between"><div><h2>Last Entry</h2><div class="muted">Quick corrections</div></div><b id="status">None</b></div><div id="last" style="margin:12px 0" class="muted">Nothing logged yet.</div>
+<div class="actions"><button id="editLast" class="btn">✏️ Edit Last</button><button id="addNote" class="btn">📝 Add Note</button><button id="undo" class="btn danger">↶ Undo</button></div></section>
+
+<section id="editor" class="card hidden"><div class="row between"><h2>Edit Entry</h2><button class="btn" id="closeEditor">Close</button></div><div id="editFields"></div></section>
+
+<section class="card"><div class="row between"><div><h2>Shift Sheet</h2><div class="muted">Repeated rounds remain with each asset.</div></div><div class="tabs"><button id="hvacTab" class="btn tab active">HVAC</button><button id="genTab" class="btn tab">Generators</button></div></div>
+<div class="tablewrap"><div id="hvacTable"></div><div id="genTable" class="hidden"></div></div>
+<div class="row" style="margin-top:12px"><button id="editShift" class="btn">✏️ Edit Full Shift</button><button id="nextRound" class="btn">Start Next Round</button></div></section>
+
+<section id="fullEditor" class="card hidden"><div class="row between"><div><h2>Edit Full Shift</h2><div class="muted">Tap any entry to edit it.</div></div><button id="closeFull" class="btn">Close</button></div><div id="fullList" style="margin-top:10px"></div></section>
+
+<section class="card"><div class="row between"><div><h2>End of Day Review</h2><div class="muted">Editable before sharing.</div></div><button id="generate" class="btn primary">Generate</button></div><textarea id="review" class="textarea" style="margin-top:12px"></textarea></section>
+<section class="card"><button id="share" class="btn primary share">💬 Share to Messages</button></section>
+<section class="card"><details><summary><b>History</b> <span class="muted">— saved daily logs</span></summary><div id="history" style="margin-top:12px"></div></details></section>
+</main>
+<script>
+const A={
+"211053":["hvac","40 ton"],"751996":["hvac","80 ton"],"751995":["hvac","80 ton"],"309060":["hvac","12 ton"],"749812":["hvac","80 ton"],"749810":["hvac","80 ton"],"310346":["hvac","12 ton"],"101749":["hvac","12 ton"],"86818":["hvac","12 ton"],"332935":["hvac","12 ton"],"101578":["hvac","12 ton"],"101790":["hvac","12 ton"],"101586":["hvac","12 ton"],"111735":["generator","330 kW"],"108470":["generator","25 kW"]
+};
+const $=x=>document.getElementById(x), dayKey=()=>new Date().toISOString().slice(0,10), fmtTime=()=>new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"});
+let state=JSON.parse(localStorage.getItem("fieldOpsState")||"null")||{days:{}}; if(!state.days[dayKey()])state.days[dayKey()]={round:1,logs:[]}; let D=state.days[dayKey()],lastIndex=null;
+function save(){localStorage.setItem("fieldOpsState",JSON.stringify(state));render()}
+function val(t,r){let m=t.match(r);return m?+m[1]:null}
+function noteFrom(t,id){return t.toLowerCase().replace(id,"").replace(/\b(hvac|generator|gen|asset|unit|number|running|down|note)\b/g," ").replace(/\bambient\s*(?:is|at)?\s*-?\d+(\.\d+)?/g," ").replace(/\b(duct|supply)\s*(?:is|at)?\s*-?\d+(\.\d+)?/g," ").replace(/\breturn\s*(?:is|at)?\s*-?\d+(\.\d+)?/g," ").replace(/\b(def|death)\s*(?:is|at)?\s*\d+(\.\d+)?\s*(percent|%)?/g," ").replace(/\bfuel\s*(?:is|at)?\s*\d+(\.\d+)?\s*(percent|%)?/g," ").replace(/[,:;]/g," ").replace(/\s+/g," ").trim()}
+function parse(raw){let t=raw.trim(),m=t.match(/\b\d{5,7}\b/);if(!m)return feedback("No asset number detected.",true);let id=m[0],a=A[id];if(!a)return feedback("Asset "+id+" is not loaded.",true);let low=t.toLowerCase(),note=noteFrom(t,id),status=/\bdown\b/.test(low)?"down":"running",x={id,type:a[0],size:a[1],time:fmtTime(),round:D.round,status,note};
+if(a[0]=="generator"){x.def=val(low,/\b(def|death)\s*(?:is|at)?\s*(\d+(\.\d+)?)/); if(x.def!==null){let mm=low.match(/\b(def|death)\s*(?:is|at)?\s*(\d+(\.\d+)?)/);x.def=+mm[2]} x.fuel=val(low,/\bfuel\s*(?:is|at)?\s*(\d+(\.\d+)?)/); if(x.def===null&&x.fuel===null&&!note)return feedback("Say DEF, fuel, or a note.",true)}
+else{x.ambient=val(low,/\bambient\s*(?:is|at)?\s*(-?\d+(\.\d+)?)/);let dm=low.match(/\b(duct|supply)\s*(?:is|at)?\s*(-?\d+(\.\d+)?)/);x.duct=dm?+dm[2]:null;x.ret=val(low,/\breturn\s*(?:is|at)?\s*(-?\d+(\.\d+)?)/);x.delta=x.ret!==null&&x.duct!==null?Math.round((x.ret-x.duct)*10)/10:null;if(x.ambient===null&&x.duct===null&&x.ret===null&&!note)return feedback("Say temperatures or a note.",true)}
+D.logs.push(x);lastIndex=D.logs.length-1;save();feedback(id+" saved at "+x.time+".");$("cmd").value=""}
+function feedback(s,bad=false){$("feedback").textContent=s;$("feedback").className=bad?"warn":"good"}
+function render(){ $("date").textContent=new Date().toLocaleDateString();$("round").textContent="Round "+D.round;$("count").textContent=D.logs.length+" readings";let x=lastIndex!==null?D.logs[lastIndex]:D.logs.at(-1);$("last").innerHTML=x?`<b>${x.id}</b> · ${x.size} · ${x.time} · R${x.round}<br>${x.type=="hvac"?`Ambient ${x.ambient??"—"} · Duct ${x.duct??"—"} · Return ${x.ret??"—"} · ΔT ${x.delta??"—"}`:`DEF ${x.def??"—"}% · Fuel ${x.fuel??"—"}%`}${x.note?`<br><span class="warn">Note: ${x.note}</span>`:""}`:"Nothing logged yet.";$("status").textContent=x?(x.status=="down"?"DOWN":"Saved"):"None";renderTables();renderHistory()}
+function rows(type){return Object.entries(A).filter(([id,a])=>a[0]==type)}
+function renderTables(){let make=type=>{let html="<table><tr><th>Asset</th><th>Size</th><th>Status / Note</th><th>Readings</th></tr>";rows(type).forEach(([id,a])=>{let xs=D.logs.filter(x=>x.id==id);html+=`<tr><td><b>${id}</b></td><td>${a[1]}</td><td class="note">${xs.some(x=>x.status=="down")?"<span class=bad>DOWN</span> ":""}${xs.map(x=>x.note).filter(Boolean).join(" · ")}</td><td class="note">${xs.map(x=>x.type=="hvac"?`${x.time}: A ${x.ambient??"—"} / D ${x.duct??"—"} / R ${x.ret??"—"} / Δ ${x.delta??"—"}`:`${x.time}: DEF ${x.def??"—"}% / Fuel ${x.fuel??"—"}%`).join("<br>")}</td></tr>`});return html+"</table>"};$("hvacTable").innerHTML=make("hvac");$("genTable").innerHTML=make("generator")}
+function openEdit(i){let x=D.logs[i];if(!x)return;$("editor").classList.remove("hidden");$("editFields").innerHTML=`<p><b>${x.id}</b> · ${x.size}</p><label>Time</label><input id="eTime" class="input" value="${x.time}"><label>Note</label><textarea id="eNote" class="textarea">${x.note||""}</textarea><label>Status</label><select id="eStatus" class="select"><option value="running">Running</option><option value="down">Down</option></select><button id="saveEdit" class="btn primary" style="margin-top:10px">Save Changes</button>`;$("eStatus").value=x.status;$("saveEdit").onclick=()=>{x.time=$("eTime").value;x.note=$("eNote").value;x.status=$("eStatus").value;save();$("editor").classList.add("hidden")}}
+function renderFull(){$("fullList").innerHTML=D.logs.map((x,i)=>`<button class="btn" style="width:100%;margin:5px 0;text-align:left" data-i="${i}">${x.id} · ${x.time} · R${x.round}${x.note?" · "+x.note:""}</button>`).join("")||"<div class=muted>No entries yet.</div>";$("fullList").querySelectorAll("button").forEach(b=>b.onclick=()=>openEdit(+b.dataset.i))}
+function review(){let s=`${new Date().toLocaleDateString()} INSPECTION\n\nHVAC\n`;rows("hvac").forEach(([id,a])=>{let xs=D.logs.filter(x=>x.id==id);if(!xs.length)return;s+=`\n${id} | ${a[1]}\n`;xs.forEach(x=>s+=`R${x.round} ${x.time} | Amb ${x.ambient??"—"} | Duct ${x.duct??"—"} | Return ${x.ret??"—"} | ΔT ${x.delta??"—"}${x.note?" | NOTE: "+x.note:""}\n`)});s+="\nGENERATORS\n";rows("generator").forEach(([id,a])=>{let xs=D.logs.filter(x=>x.id==id);if(!xs.length)return;s+=`\n${id} | ${a[1]}\n`;xs.forEach(x=>s+=`R${x.round} ${x.time} | DEF ${x.def??"—"}% | Fuel ${x.fuel??"—"}%${x.note?" | NOTE: "+x.note:""}\n`)});$("review").value=s;return s}
+function renderHistory(){let keys=Object.keys(state.days).sort().reverse();$("history").innerHTML=keys.map(k=>`<div style="padding:9px 0;border-bottom:1px solid #29313b"><b>${k}</b> · ${state.days[k].logs.length} entries</div>`).join("")}
+$("process").onclick=()=>parse($("cmd").value);$("cmd").onkeydown=e=>{if(e.key=="Enter")parse($("cmd").value)};$("undo").onclick=()=>{if(D.logs.length){D.logs.pop();lastIndex=null;save()}};$("editLast").onclick=()=>openEdit(D.logs.length-1);$("addNote").onclick=()=>{let x=D.logs.at(-1);if(!x)return;openEdit(D.logs.length-1)};$("closeEditor").onclick=()=>$("editor").classList.add("hidden");
+$("hvacTab").onclick=()=>{$("hvacTable").classList.remove("hidden");$("genTable").classList.add("hidden");$("hvacTab").classList.add("active");$("genTab").classList.remove("active")};$("genTab").onclick=()=>{$("genTable").classList.remove("hidden");$("hvacTable").classList.add("hidden");$("genTab").classList.add("active");$("hvacTab").classList.remove("active")};
+$("nextRound").onclick=()=>{D.round++;save()};$("editShift").onclick=()=>{$("fullEditor").classList.remove("hidden");renderFull()};$("closeFull").onclick=()=>$("fullEditor").classList.add("hidden");$("generate").onclick=review;$("share").onclick=async()=>{let text=$("review").value||review();if(navigator.share){try{await navigator.share({text})}catch(e){}}else{await navigator.clipboard.writeText(text);alert("Review copied.")}};
+let rec=null,live="";const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(SR){rec=new SR();rec.continuous=false;rec.interimResults=true;rec.onstart=()=>{$("mic").classList.add("on");$("miclabel").textContent="LISTENING — TAP TO STOP"};rec.onresult=e=>{live=Array.from(e.results).map(r=>r[0].transcript).join(" ");$("speech").textContent=live;$("cmd").value=live};rec.onend=()=>{$("mic").classList.remove("on");$("miclabel").textContent="TAP TO TALK";if(live.trim())parse(live);live=""};rec.onerror=e=>feedback("Microphone speech recognition failed: "+e.error,true);$("mic").onclick=()=>{try{if($("mic").classList.contains("on"))rec.stop();else rec.start()}catch(e){}}}else{$("mic").onclick=()=>feedback("Voice recognition is unavailable in this browser. Use the text box or iPhone dictation.",true)}
+if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});render();
+</script></body></html>
