@@ -71,9 +71,7 @@ th,td{
 .hidden{display:none}
 .share{width:100%;font-size:18px;padding:17px}
 
-.field{
-  margin-top:12px
-}
+.field{margin-top:12px}
 .field label{
   display:block;color:#9da7b3;font-size:12px;
   font-weight:700;margin-bottom:5px
@@ -112,7 +110,7 @@ th,td{
     <button id="mic">🎙️</button>
     <div id="miclabel">TAP TO TALK</div>
     <div id="speech" class="muted" style="margin-top:8px">
-      Say asset number, ambient, supply, return, and any note.
+      Say asset number and readings.
     </div>
   </div>
 
@@ -272,6 +270,7 @@ const $=id=>document.getElementById(id);
 
 function localDay(){
   const d=new Date();
+
   return (
     d.getFullYear()+"-"+
     String(d.getMonth()+1).padStart(2,"0")+"-"+
@@ -289,7 +288,9 @@ function fmtTime(){
 let state;
 
 try{
-  state=JSON.parse(localStorage.getItem("fieldOpsState")||"null");
+  state=JSON.parse(
+    localStorage.getItem("fieldOpsState")||"null"
+  );
 }catch(e){
   state=null;
 }
@@ -312,21 +313,26 @@ let lastIndex=null;
 
 
 /* ==============================
-   CLEAN OLD DATA
+   MIGRATE OLD DATA
 ============================== */
 
 function migrateOldData(){
 
   Object.values(state.days).forEach(day=>{
 
-    if(!day.logs) day.logs=[];
+    if(!day.logs){
+      day.logs=[];
+    }
 
     day.logs.forEach(x=>{
 
       /*
-       Old version used x.duct.
-       Preserve those readings but convert them to Supply.
+        Older versions stored the supply
+        temperature as x.duct.
+
+        Convert it to x.supply.
       */
+
       if(x.supply==null && x.duct!=null){
         x.supply=x.duct;
       }
@@ -354,6 +360,7 @@ migrateOldData();
 
 
 function save(){
+
   localStorage.setItem(
     "fieldOpsState",
     JSON.stringify(state)
@@ -364,7 +371,7 @@ function save(){
 
 
 /* ==============================
-   SPEECH TEXT NORMALIZATION
+   NORMALIZE SPEECH
 ============================== */
 
 function normalize(raw){
@@ -372,25 +379,18 @@ function normalize(raw){
   let t=String(raw||"").toLowerCase();
 
   /*
-    Common iPhone speech mistakes.
+    Common speech-recognition mistakes.
   */
 
   t=t.replace(/\bambien\b/g,"ambient");
   t=t.replace(/\bambiant\b/g,"ambient");
-  t=t.replace(/\bambiant\b/g,"ambient");
   t=t.replace(/\bambience\b/g,"ambient");
+  t=t.replace(/\bambian\b/g,"ambient");
 
   t=t.replace(/\bsupplied\b/g,"supply");
   t=t.replace(/\bsupplies\b/g,"supply");
 
   t=t.replace(/\breturned\b/g,"return");
-
-  /*
-    We still ACCEPT "duct" as an input word
-    in case speech recognition hears supply incorrectly.
-
-    But the app NEVER displays Duct anymore.
-  */
 
   return t
     .replace(/[,:;]/g," ")
@@ -438,7 +438,7 @@ function noteFrom(text,id){
   );
 
   /*
-    Remove recognized temperature phrases.
+    AMBIENT
   */
 
   n=n.replace(
@@ -446,15 +446,29 @@ function noteFrom(text,id){
     " "
   );
 
+  /*
+    SUPPLY aliases:
+    supply / duct / out
+  */
+
   n=n.replace(
-    /\b(?:supply|duct)\b\s*(?:temp(?:erature)?|is|at|of|reads|reading)?\s*-?\d+(?:\.\d+)?/gi,
+    /\b(?:supply|duct|out)\b\s*(?:temp(?:erature)?|is|at|of|reads|reading)?\s*-?\d+(?:\.\d+)?/gi,
     " "
   );
 
+  /*
+    RETURN aliases:
+    return / in
+  */
+
   n=n.replace(
-    /\breturn\b\s*(?:temp(?:erature)?|is|at|of|reads|reading)?\s*-?\d+(?:\.\d+)?/gi,
+    /\b(?:return|in)\b\s*(?:temp(?:erature)?|is|at|of|reads|reading)?\s*-?\d+(?:\.\d+)?/gi,
     " "
   );
+
+  /*
+    GENERATOR readings
+  */
 
   n=n.replace(
     /\b(?:def|death)\b\s*(?:is|at|of|reads|reading)?\s*\d+(?:\.\d+)?\s*(?:percent|%)?/gi,
@@ -467,7 +481,7 @@ function noteFrom(text,id){
   );
 
   /*
-    Remove filler words but KEEP actual problem descriptions.
+    Remove filler words.
   */
 
   n=n.replace(
@@ -475,12 +489,19 @@ function noteFrom(text,id){
     " "
   );
 
+  /*
+    Remove leftover reading labels.
+  */
+
   n=n.replace(
-    /\b(?:ambient|supply|duct|return)\b/gi,
+    /\b(?:ambient|supply|duct|out|return|in)\b/gi,
     " "
   );
 
-  n=n.replace(/\s+/g," ").trim();
+  n=n
+    .replace(/[,:;]/g," ")
+    .replace(/\s+/g," ")
+    .trim();
 
   return n;
 }
@@ -514,17 +535,15 @@ function parse(raw){
 
   const t=normalize(original);
 
-  /*
-    Asset numbers are 5-7 digits.
-  */
-
   const assetMatch=t.match(/\b\d{5,7}\b/);
 
   if(!assetMatch){
+
     feedback(
       "No asset number detected.",
       true
     );
+
     return;
   }
 
@@ -532,10 +551,12 @@ function parse(raw){
   const asset=A[id];
 
   if(!asset){
+
     feedback(
       "Asset "+id+" is not loaded.",
       true
     );
+
     return;
   }
 
@@ -548,15 +569,29 @@ function parse(raw){
     size,
     time:fmtTime(),
     round:D.round,
-    status:/\b(down|offline|failed|not running)\b/.test(t)
+
+    status:
+      /\b(down|offline|failed|not running)\b/.test(t)
       ? "down"
       : "running",
+
     note:""
   };
 
 
   /* ==========================
      HVAC
+
+     Spoken aliases:
+
+     SUPPLY:
+     supply
+     duct
+     out
+
+     RETURN:
+     return
+     in
   ========================== */
 
   if(type==="hvac"){
@@ -568,12 +603,12 @@ function parse(raw){
 
     x.supply=numberAfter(
       t,
-      ["supply","duct"]
+      ["supply","duct","out"]
     );
 
     x.ret=numberAfter(
       t,
-      ["return"]
+      ["return","in"]
     );
 
     x.delta=
@@ -589,10 +624,12 @@ function parse(raw){
       x.ret==null &&
       !x.note
     ){
+
       feedback(
         "I found the asset, but no temperatures or note.",
         true
       );
+
       return;
     }
 
@@ -622,10 +659,12 @@ function parse(raw){
       x.fuel==null &&
       !x.note
     ){
+
       feedback(
         "Say DEF, fuel, or a note.",
         true
       );
+
       return;
     }
 
@@ -662,7 +701,8 @@ function renderLast(){
     $("last").innerHTML=
       "Nothing logged yet.";
 
-    $("status").textContent="None";
+    $("status").textContent=
+      "None";
 
     return;
   }
@@ -748,11 +788,6 @@ function renderTables(){
         .map(x=>x.note)
         .filter(Boolean);
 
-      /*
-        Don't display identical note repeatedly
-        in the status column.
-      */
-
       const uniqueNotes=[
         ...new Set(notes)
       ];
@@ -760,6 +795,7 @@ function renderTables(){
       let statusText="";
 
       if(xs.some(x=>x.status==="down")){
+
         statusText+=
           `<span class="bad">DOWN</span> `;
       }
@@ -814,14 +850,16 @@ function renderTables(){
 
 
 /* ==============================
-   FULL EDITOR
+   EDIT ENTRY
 ============================== */
 
 function openEdit(index){
 
   const x=D.logs[index];
 
-  if(!x) return;
+  if(!x){
+    return;
+  }
 
   $("editor").classList.remove("hidden");
 
@@ -904,25 +942,32 @@ function openEdit(index){
 
   $("saveEdit").onclick=()=>{
 
-    x.time=$("eTime").value.trim() || x.time;
+    x.time=
+      $("eTime").value.trim() ||
+      x.time;
 
-    x.status=$("eStatus").value;
+    x.status=
+      $("eStatus").value;
 
-    x.note=$("eNote").value.trim();
+    x.note=
+      $("eNote").value.trim();
 
     if(x.type==="hvac"){
 
-      x.ambient=numOrNull(
-        $("eAmbient").value
-      );
+      x.ambient=
+        numOrNull(
+          $("eAmbient").value
+        );
 
-      x.supply=numOrNull(
-        $("eSupply").value
-      );
+      x.supply=
+        numOrNull(
+          $("eSupply").value
+        );
 
-      x.ret=numOrNull(
-        $("eReturn").value
-      );
+      x.ret=
+        numOrNull(
+          $("eReturn").value
+        );
 
       x.delta=
         x.ret!=null &&
@@ -934,13 +979,15 @@ function openEdit(index){
 
     }else{
 
-      x.def=numOrNull(
-        $("eDef").value
-      );
+      x.def=
+        numOrNull(
+          $("eDef").value
+        );
 
-      x.fuel=numOrNull(
-        $("eFuel").value
-      );
+      x.fuel=
+        numOrNull(
+          $("eFuel").value
+        );
     }
 
     lastIndex=index;
@@ -950,6 +997,10 @@ function openEdit(index){
     $("editor").classList.add("hidden");
 
     renderFull();
+
+    feedback(
+      x.id+" updated."
+    );
   };
 
 
@@ -968,6 +1019,10 @@ function openEdit(index){
     $("editor").classList.add("hidden");
 
     renderFull();
+
+    feedback(
+      "Entry deleted."
+    );
   };
 
 
@@ -995,7 +1050,7 @@ function numOrNull(v){
 
 
 /* ==============================
-   FULL SHIFT LIST
+   FULL SHIFT EDITOR
 ============================== */
 
 function renderFull(){
@@ -1018,7 +1073,8 @@ function renderFull(){
         reading=
           `A ${x.ambient ?? "—"} / `+
           `S ${x.supply ?? "—"} / `+
-          `R ${x.ret ?? "—"}`;
+          `R ${x.ret ?? "—"} / `+
+          `Δ ${x.delta ?? "—"}`;
 
       }else{
 
@@ -1046,6 +1102,7 @@ function renderFull(){
     .forEach(b=>{
 
       b.onclick=()=>{
+
         openEdit(
           Number(b.dataset.i)
         );
@@ -1070,7 +1127,9 @@ function review(){
       x=>x.id===id
     );
 
-    if(!xs.length) return;
+    if(!xs.length){
+      return;
+    }
 
     s+=`\n${id} | ${a[1]}\n`;
 
@@ -1106,7 +1165,9 @@ function review(){
       x=>x.id===id
     );
 
-    if(!xs.length) return;
+    if(!xs.length){
+      return;
+    }
 
     s+=`\n${id} | ${a[1]}\n`;
 
@@ -1145,8 +1206,8 @@ function renderHistory(){
 
   const keys=
     Object.keys(state.days)
-    .sort()
-    .reverse();
+      .sort()
+      .reverse();
 
   $("history").innerHTML=
     keys.map(k=>{
@@ -1177,9 +1238,11 @@ function render(){
 
   $("count").textContent=
     D.logs.length+
-    (D.logs.length===1
+    (
+      D.logs.length===1
       ? " reading"
-      : " readings");
+      : " readings"
+    );
 
   renderLast();
   renderTables();
@@ -1192,23 +1255,35 @@ function render(){
 ============================== */
 
 $("process").onclick=()=>{
-  parse($("cmd").value);
+
+  parse(
+    $("cmd").value
+  );
 };
+
 
 $("cmd").onkeydown=e=>{
 
   if(e.key==="Enter"){
-    e.preventDefault();
-    parse($("cmd").value);
-  }
 
+    e.preventDefault();
+
+    parse(
+      $("cmd").value
+    );
+  }
 };
 
 
 $("undo").onclick=()=>{
 
   if(!D.logs.length){
-    feedback("Nothing to undo.",true);
+
+    feedback(
+      "Nothing to undo.",
+      true
+    );
+
     return;
   }
 
@@ -1218,14 +1293,21 @@ $("undo").onclick=()=>{
 
   save();
 
-  feedback("Last entry removed.");
+  feedback(
+    "Last entry removed."
+  );
 };
 
 
 $("editLast").onclick=()=>{
 
   if(!D.logs.length){
-    feedback("Nothing to edit.",true);
+
+    feedback(
+      "Nothing to edit.",
+      true
+    );
+
     return;
   }
 
@@ -1238,7 +1320,12 @@ $("editLast").onclick=()=>{
 $("addNote").onclick=()=>{
 
   if(!D.logs.length){
-    feedback("Log an asset first.",true);
+
+    feedback(
+      "Log an asset first.",
+      true
+    );
+
     return;
   }
 
@@ -1249,27 +1336,50 @@ $("addNote").onclick=()=>{
 
 
 $("closeEditor").onclick=()=>{
-  $("editor").classList.add("hidden");
+
+  $("editor")
+    .classList
+    .add("hidden");
 };
 
 
 $("hvacTab").onclick=()=>{
 
-  $("hvacTable").classList.remove("hidden");
-  $("genTable").classList.add("hidden");
+  $("hvacTable")
+    .classList
+    .remove("hidden");
 
-  $("hvacTab").classList.add("active");
-  $("genTab").classList.remove("active");
+  $("genTable")
+    .classList
+    .add("hidden");
+
+  $("hvacTab")
+    .classList
+    .add("active");
+
+  $("genTab")
+    .classList
+    .remove("active");
 };
 
 
 $("genTab").onclick=()=>{
 
-  $("genTable").classList.remove("hidden");
-  $("hvacTable").classList.add("hidden");
+  $("genTable")
+    .classList
+    .remove("hidden");
 
-  $("genTab").classList.add("active");
-  $("hvacTab").classList.remove("active");
+  $("hvacTable")
+    .classList
+    .add("hidden");
+
+  $("genTab")
+    .classList
+    .add("active");
+
+  $("hvacTab")
+    .classList
+    .remove("active");
 };
 
 
@@ -1287,7 +1397,9 @@ $("nextRound").onclick=()=>{
 
 $("editShift").onclick=()=>{
 
-  $("fullEditor").classList.remove("hidden");
+  $("fullEditor")
+    .classList
+    .remove("hidden");
 
   renderFull();
 
@@ -1299,11 +1411,15 @@ $("editShift").onclick=()=>{
 
 
 $("closeFull").onclick=()=>{
-  $("fullEditor").classList.add("hidden");
+
+  $("fullEditor")
+    .classList
+    .add("hidden");
 };
 
 
-$("generate").onclick=review;
+$("generate").onclick=
+  review;
 
 
 $("share").onclick=async()=>{
@@ -1326,7 +1442,9 @@ $("share").onclick=async()=>{
 
     try{
 
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(
+        text
+      );
 
       alert(
         "Shift review copied. Paste it into Messages."
@@ -1344,9 +1462,6 @@ $("share").onclick=async()=>{
 
 /* ==============================
    MICROPHONE
-
-   Safari may block Web Speech.
-   The app will NOT break if it does.
 ============================== */
 
 let rec=null;
@@ -1383,7 +1498,9 @@ if(SR){
 
     listening=true;
 
-    $("mic").classList.add("on");
+    $("mic")
+      .classList
+      .add("on");
 
     $("miclabel").textContent=
       "LISTENING — TAP TO STOP";
@@ -1395,13 +1512,16 @@ if(SR){
 
   rec.onresult=e=>{
 
-    live=Array.from(e.results)
-      .map(r=>r[0].transcript)
-      .join(" ");
+    live=
+      Array.from(e.results)
+        .map(r=>r[0].transcript)
+        .join(" ");
 
-    $("speech").textContent=live;
+    $("speech").textContent=
+      live;
 
-    $("cmd").value=live;
+    $("cmd").value=
+      live;
   };
 
 
@@ -1409,15 +1529,12 @@ if(SR){
 
     listening=false;
 
-    $("mic").classList.remove("on");
+    $("mic")
+      .classList
+      .remove("on");
 
     $("miclabel").textContent=
       "TAP TO TALK";
-
-    /*
-      Don't auto-submit unless we actually
-      received speech.
-    */
 
     if(live.trim()){
 
@@ -1438,7 +1555,9 @@ if(SR){
 
     listening=false;
 
-    $("mic").classList.remove("on");
+    $("mic")
+      .classList
+      .remove("on");
 
     $("miclabel").textContent=
       "TAP TO TALK";
@@ -1449,7 +1568,7 @@ if(SR){
     ){
 
       feedback(
-        "Safari blocked browser speech recognition. Tap the text box and use the iPhone keyboard microphone for now.",
+        "Safari blocked browser speech recognition. Tap the text box and use the iPhone keyboard microphone.",
         true
       );
 
