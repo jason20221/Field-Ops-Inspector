@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0e12">
+<link rel="manifest" href="manifest.json">
+<title>Field Ops Inspector</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0e12;color:#f3f5f7;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+main{max-width:900px;margin:auto;padding:16px;display:grid;gap:14px}.card{background:#151a21;border:1px solid #2b323c;border-radius:20px;padding:16px}
+h1,h2{margin:0 0 6px}.muted{color:#9da7b3;font-size:13px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}
+button,input,textarea,select{font:inherit}.btn{border:0;border-radius:14px;padding:12px 14px;font-weight:750;background:#252d38;color:white}.primary{background:#3978f6}.danger{background:#531c24}
+.good{color:#59d28d}.warn{color:#ffb94a}.bad{color:#ff777d}.micbox{text-align:center;padding:28px 0 15px}
+#mic{width:205px;height:205px;border-radius:50%;border:0;background:#3978f6;color:white;font-size:76px;box-shadow:0 18px 50px #3978f655}#mic.on{background:#d94b52}
+#miclabel{font-weight:850;font-size:20px;margin-top:14px}.input,.textarea,.select{width:100%;background:#0f141a;border:1px solid #394350;color:white;border-radius:13px;padding:12px}
+.textarea{min-height:140px}.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.tabs{display:flex;gap:8px}.tab.active{background:#3978f6}
+.tablewrap{overflow:auto;border:1px solid #29313b;border-radius:14px;margin-top:12px}table{border-collapse:collapse;min-width:100%;width:max-content;font-size:12px}
+th,td{padding:9px;border-bottom:1px solid #29313b;white-space:nowrap;text-align:left;vertical-align:top}.note{white-space:normal;min-width:180px}.hidden{display:none}
+.field{margin-top:12px}.field label{display:block;color:#9da7b3;font-size:12px;font-weight:700;margin-bottom:5px}.editgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.logbtn{width:100%;margin:5px 0;text-align:left}#reportPreview{width:100%;border-radius:14px;border:1px solid #394350;margin-top:12px;display:none}
+.reportActions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.version{font-size:11px;color:#647080;margin-top:6px}.assetRow{display:grid;grid-template-columns:1.2fr 1fr 1fr auto auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #29313b}.assetRow:last-child{border-bottom:0}.assetMini{padding:8px 10px;border-radius:10px}.assetForm{display:grid;grid-template-columns:1.2fr 1fr 1fr auto;gap:9px;margin-top:12px}
+@media(max-width:600px){.actions,.reportActions{grid-template-columns:1fr}.assetForm{grid-template-columns:1fr 1fr}.assetRow{grid-template-columns:1fr 1fr 1fr}.assetRow .assetMini{width:100%}.editgrid{grid-template-columns:1fr 1fr}#mic{width:185px;height:185px}}
+</style>
+</head>
+<body><main>
+<section class="card">
+<div class="row between"><div><h1>Field Ops Inspector</h1><div class="muted">Walk Mode · <span id="date"></span></div><div class="version">Report Image + Asset Manager v5</div></div><div><span id="count">0 readings</span></div></div>
+<div class="micbox"><button id="mic">🎙️</button><div id="miclabel">TAP TO TALK</div><div id="speech" class="muted" style="margin-top:8px">Say asset number and readings.</div></div>
+<div class="row"><input id="cmd" class="input" style="flex:1" placeholder="Type or use iPhone dictation" autocomplete="off"><button id="process" class="btn primary">Process</button></div>
+<div id="feedback" class="muted" style="margin-top:8px">Example: “101790 ambient 101 supply 47 return 75 blower trip warning.”</div>
+</section>
+
+<section class="card">
+<div class="row between"><div><h2>Last Entry</h2><div class="muted">Quick corrections</div></div><b id="status">None</b></div>
+<div id="last" style="margin:12px 0" class="muted">Nothing logged yet.</div>
+<div class="actions"><button id="editLast" class="btn">✏️ Edit Last</button><button id="addNote" class="btn">📝 Add Note</button><button id="undo" class="btn danger">↶ Undo</button></div>
+</section>
+
+<section id="editor" class="card hidden"><div class="row between"><div><h2>Edit Entry</h2><div class="muted">Every field can be corrected.</div></div><button class="btn" id="closeEditor">Close</button></div><div id="editFields"></div></section>
+
+<section class="card">
+<div class="row between"><div><h2>Shift Sheet</h2><div class="muted">Each repeated reading is saved automatically by time.</div></div><div class="tabs"><button id="hvacTab" class="btn tab active">HVAC</button><button id="genTab" class="btn tab">Generators</button></div></div>
+<div class="tablewrap"><div id="hvacTable"></div><div id="genTable" class="hidden"></div></div>
+<div class="row" style="margin-top:12px"><button id="editShift" class="btn">✏️ Edit Full Shift</button><button id="nextRound" class="btn">Start New Day</button></div>
+</section>
+
+<section id="fullEditor" class="card hidden"><div class="row between"><div><h2>Edit Full Shift</h2><div class="muted">Tap any logged entry to change it.</div></div><button id="closeFull" class="btn">Close</button></div><div id="fullList" style="margin-top:10px"></div></section>
+
+<section class="card">
+<details id="assetManager">
+<summary><b>Asset Manager</b> <span class="muted">— add, edit, or remove equipment</span></summary>
+<div class="assetForm">
+  <input id="assetNumber" class="input" inputmode="numeric" placeholder="Asset number">
+  <select id="assetType" class="select">
+    <option value="generator">Generator</option>
+    <option value="hvac">HVAC</option>
+  </select>
+  <input id="assetSize" class="input" placeholder="330 kW / 40 ton">
+  <button id="saveAsset" class="btn primary">＋ Save Asset</button>
+</div>
+<div id="assetFeedback" class="muted" style="margin-top:8px">New equipment can be added here without changing GitHub.</div>
+<div id="assetList" style="margin-top:12px"></div>
+</details>
+</section>
+
+<section class="card">
+<div class="row between"><div><h2>End of Day Report</h2><div class="muted">Generates a fixed PNG report for Messages.</div></div><button id="generateImage" class="btn primary">Generate Photo</button></div>
+<img id="reportPreview" alt="Generated end of day inspection report">
+<div class="reportActions"><button id="shareImage" class="btn primary">💬 Share Photo to Messages</button><button id="saveImage" class="btn">⬇️ Save / Open Photo</button></div>
+</section>
+
+<section class="card"><details><summary><b>History</b> <span class="muted">— saved daily logs</span></summary><div id="history" style="margin-top:12px"></div></details></section>
+</main>
+
+<script>
+const LOGO_DATA="./Sinewave-logo.png";
+const DEFAULT_ASSETS={
+"211053":["hvac","40 ton"],"751996":["hvac","80 ton"],"751995":["hvac","80 ton"],"309060":["hvac","12 ton"],"749812":["hvac","80 ton"],"749810":["hvac","80 ton"],"310346":["hvac","12 ton"],"101749":["hvac","12 ton"],"86818":["hvac","12 ton"],"332935":["hvac","12 ton"],"101578":["hvac","12 ton"],"101790":["hvac","12 ton"],"101586":["hvac","12 ton"],
+"111735":["generator","330 kW"],"108470":["generator","25 kW"]
+};
+let customAssets={};
+let removedAssets=[];
+try{customAssets=JSON.parse(localStorage.getItem("fieldOpsCustomAssets")||"{}")||{}}catch(e){customAssets={}}
+try{removedAssets=JSON.parse(localStorage.getItem("fieldOpsRemovedAssets")||"[]")||[]}catch(e){removedAssets=[]}
+let A={};
+function rebuildAssets(){
+  A={...DEFAULT_ASSETS,...customAssets};
+  removedAssets.forEach(id=>delete A[id]);
+}
+rebuildAssets();
+let pendingUnknownCommand="";
+const $=id=>document.getElementById(id);
+function localDay(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function fmtTime(){return new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}
+function numOrNull(v){const s=String(v).trim();if(s==="")return null;const n=Number(s);return Number.isFinite(n)?n:null}
+function escapeHtml(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;")}
+let state;try{state=JSON.parse(localStorage.getItem("fieldOpsState")||"null")}catch(e){state=null}
+if(!state||!state.days)state={days:{}};
+let activeDay=localStorage.getItem("fieldOpsActiveDay")||localDay();
+if(!state.days[activeDay])state.days[activeDay]={logs:[]};
+let D=state.days[activeDay],lastIndex=null,lastReportBlob=null,lastReportUrl=null;
+
+function nextDayKey(key){
+  const parts=String(key).split("-").map(Number);
+  const d=new Date(parts[0],parts[1]-1,parts[2],12,0,0);
+  d.setDate(d.getDate()+1);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function switchToNewDay(){
+  if(!confirm("Start a new day? Your current shift will stay saved in History."))return;
+  activeDay=nextDayKey(activeDay);
+  localStorage.setItem("fieldOpsActiveDay",activeDay);
+  if(!state.days[activeDay])state.days[activeDay]={logs:[]};
+  D=state.days[activeDay];
+  lastIndex=null;
+  lastReportBlob=null;
+  if(lastReportUrl){URL.revokeObjectURL(lastReportUrl);lastReportUrl=null;}
+  $("reportPreview").style.display="none";
+  save();
+  feedback("Started new day: "+formatDayLabel(activeDay)+".");
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function formatDayLabel(key){
+  const p=String(key).split("-").map(Number);
+  return new Date(p[0],p[1]-1,p[2]).toLocaleDateString();
+}
+
+function migrateOldData(){Object.values(state.days).forEach(day=>{if(!day.logs)day.logs=[];day.logs.forEach(x=>{if(x.supply==null&&x.duct!=null)x.supply=x.duct;delete x.duct;if(x.type==="hvac")x.delta=x.ret!=null&&x.supply!=null?Math.round((x.ret-x.supply)*10)/10:null})});localStorage.setItem("fieldOpsState",JSON.stringify(state))}
+migrateOldData();
+function save(){localStorage.setItem("fieldOpsState",JSON.stringify(state));render()}
+function normalize(raw){let t=String(raw||"").toLowerCase();t=t.replace(/\bambien\b/g,"ambient").replace(/\bambiant\b/g,"ambient").replace(/\bambience\b/g,"ambient").replace(/\bambian\b/g,"ambient").replace(/\bsupplied\b/g,"supply").replace(/\bsupplies\b/g,"supply").replace(/\breturned\b/g,"return");return t.replace(/[,:;]/g," ").replace(/\s+/g," ").trim()}
+function numberAfter(text,words){for(const word of words){const re=new RegExp("\\b"+word+"\\b\\s*(?:temp(?:erature)?|is|at|of|reads|reading)?\\s*(-?\\d+(?:\\.\\d+)?)\\b","i");const m=text.match(re);if(m)return Number(m[1])}return null}
+function noteFrom(text,id){let n=text;n=n.replace(new RegExp("\\b"+id+"\\b","g")," ");n=n.replace(/\bambient\b\s*(?:temp(?:erature)?|is|at|of|reads|reading)?\s*-?\d+(?:\.\d+)?/gi," ");n=n.replace(/\b(?:supply|duct|out)\b\s*(?:temp(?:erature)?|is|at|of|reads|reading)?\s*-?\d+(?:\.\d+)?/gi," ");n=n.replace(/\b(?:return|in)\b\s*(?:temp(?:erature)?|is|at|of|reads|reading)?\s*-?\d+(?:\.\d+)?/gi," ");n=n.replace(/\b(?:def|death|deaf)\b\s*(?:is|at|of|reads|reading)?\s*\d+(?:\.\d+)?\s*(?:percent|%)?/gi," ");n=n.replace(/\bfuel\b\s*(?:is|at|of|reads|reading)?\s*\d+(?:\.\d+)?\s*(?:percent|%)?/gi," ");n=n.replace(/\b(?:hvac|generator|gen|asset|unit|number|note)\b/gi," ");n=n.replace(/\b(?:ambient|supply|duct|out|return|in)\b/gi," ");return n.replace(/[,:;]/g," ").replace(/\s+/g," ").trim()}
+function feedback(text,isBad=false){$("feedback").textContent=text;$("feedback").className=isBad?"warn":"good"}
+function parse(raw){const original=String(raw||"").trim();if(!original){feedback("Nothing entered.",true);return}const t=normalize(original);const m=t.match(/\b\d{5,7}\b/);if(!m){feedback("No asset number detected.",true);return}const id=m[0],asset=A[id];if(!asset){
+  pendingUnknownCommand=original;
+  feedback("Asset "+id+" is not loaded. Add it in Asset Manager below.",true);
+  const mgr=$("assetManager");
+  if(mgr){
+    mgr.open=true;
+    $("assetNumber").value=id;
+    if(/\b(generator|gen)\b/.test(t))$("assetType").value="generator";
+    else if(/\bhvac\b/.test(t))$("assetType").value="hvac";
+    const sm=t.match(/\bsize\s*(\d+(?:\.\d+)?)\b/);
+    if(sm)$("assetSize").value=sm[1]+($("assetType").value==="generator"?" kW":" ton");
+    mgr.scrollIntoView({behavior:"smooth",block:"start"});
+  }
+  return
+}const x={id,type:asset[0],size:asset[1],time:fmtTime(),status:/\b(down|offline|failed|not running)\b/.test(t)?"down":"running",note:""};if(x.type==="hvac"){x.ambient=numberAfter(t,["ambient"]);x.supply=numberAfter(t,["supply","duct","out"]);x.ret=numberAfter(t,["return","in"]);x.delta=x.ret!=null&&x.supply!=null?Math.round((x.ret-x.supply)*10)/10:null;x.note=noteFrom(t,id);if(x.ambient==null&&x.supply==null&&x.ret==null&&!x.note){feedback("I found the asset, but no temperatures or note.",true);return}}else{x.def=numberAfter(t,["def","death","deaf"]);x.fuel=numberAfter(t,["fuel"]);x.note=noteFrom(t,id);if(x.def==null&&x.fuel==null&&!x.note){feedback("Say DEF, fuel, or a note.",true);return}}D.logs.push(x);lastIndex=D.logs.length-1;$("cmd").value="";save();feedback(id+" saved at "+x.time+".")}
+function renderLast(){const x=lastIndex!==null?D.logs[lastIndex]:D.logs[D.logs.length-1];if(!x){$("last").innerHTML="Nothing logged yet.";$("status").textContent="None";return}const readings=x.type==="hvac"?`Ambient ${x.ambient??"—"} · Supply ${x.supply??"—"} · Return ${x.ret??"—"} · ΔT ${x.delta??"—"}`:`DEF ${x.def??"—"}% · Fuel ${x.fuel??"—"}%`;$("last").innerHTML=`<b>${x.id}</b> · ${x.size} · ${x.time}<br>${readings}${x.note?`<br><span class="warn">Note: ${escapeHtml(x.note)}</span>`:""}`;$("status").textContent=x.status==="down"?"DOWN":"Saved"}
+function rows(type){return Object.entries(A).filter(([id,a])=>a[0]===type)}
+function renderTables(){function make(type){let html="<table><tr><th>Asset</th><th>Size</th><th>Status / Note</th><th>Readings</th></tr>";rows(type).forEach(([id,a])=>{const xs=D.logs.filter(x=>x.id===id),notes=[...new Set(xs.map(x=>x.note).filter(Boolean))];let st=xs.some(x=>x.status==="down")?'<span class="bad">DOWN</span> ':"";st+=notes.map(escapeHtml).join(" · ");const rd=xs.map(x=>x.type==="hvac"?`${escapeHtml(x.time)}: A ${x.ambient??"—"} / S ${x.supply??"—"} / R ${x.ret??"—"} / Δ ${x.delta??"—"}`:`${escapeHtml(x.time)}: DEF ${x.def??"—"}% / Fuel ${x.fuel??"—"}%`).join("<br>");html+=`<tr><td><b>${id}</b></td><td>${a[1]}</td><td class="note">${st}</td><td class="note">${rd}</td></tr>`});return html+"</table>"}$("hvacTable").innerHTML=make("hvac");$("genTable").innerHTML=make("generator")}
+function openEdit(index){const x=D.logs[index];if(!x)return;$("editor").classList.remove("hidden");let f=`<p><b>${x.id}</b> · ${x.size}</p><div class="editgrid"><div class="field"><label>Time</label><input id="eTime" class="input" value="${escapeHtml(x.time)}"></div><div class="field"><label>Status</label><select id="eStatus" class="select"><option value="running">Running</option><option value="down">Down</option></select></div>`;if(x.type==="hvac"){f+=`<div class="field"><label>Ambient</label><input id="eAmbient" inputmode="decimal" class="input" value="${x.ambient??""}"></div><div class="field"><label>Supply</label><input id="eSupply" inputmode="decimal" class="input" value="${x.supply??""}"></div><div class="field"><label>Return</label><input id="eReturn" inputmode="decimal" class="input" value="${x.ret??""}"></div>`}else{f+=`<div class="field"><label>DEF %</label><input id="eDef" inputmode="decimal" class="input" value="${x.def??""}"></div><div class="field"><label>Fuel %</label><input id="eFuel" inputmode="decimal" class="input" value="${x.fuel??""}"></div>`}f+=`</div><div class="field"><label>Side Note</label><textarea id="eNote" class="textarea">${escapeHtml(x.note||"")}</textarea></div><div class="row" style="margin-top:12px"><button id="saveEdit" class="btn primary">Save Changes</button><button id="deleteEdit" class="btn danger">Delete Entry</button></div>`;$("editFields").innerHTML=f;$("eStatus").value=x.status;$("saveEdit").onclick=()=>{x.time=$("eTime").value.trim()||x.time;x.status=$("eStatus").value;x.note=$("eNote").value.trim();if(x.type==="hvac"){x.ambient=numOrNull($("eAmbient").value);x.supply=numOrNull($("eSupply").value);x.ret=numOrNull($("eReturn").value);x.delta=x.ret!=null&&x.supply!=null?Math.round((x.ret-x.supply)*10)/10:null}else{x.def=numOrNull($("eDef").value);x.fuel=numOrNull($("eFuel").value)}lastIndex=index;save();$("editor").classList.add("hidden");renderFull();feedback(x.id+" updated.")};$("deleteEdit").onclick=()=>{if(!confirm("Delete this entry?"))return;D.logs.splice(index,1);lastIndex=null;save();$("editor").classList.add("hidden");renderFull();feedback("Entry deleted.")};$("editor").scrollIntoView({behavior:"smooth",block:"start"})}
+function renderFull(){if(!D.logs.length){$("fullList").innerHTML='<div class="muted">No entries yet.</div>';return}$("fullList").innerHTML=D.logs.map((x,i)=>{const rd=x.type==="hvac"?`A ${x.ambient??"—"} / S ${x.supply??"—"} / R ${x.ret??"—"} / Δ ${x.delta??"—"}`:`DEF ${x.def??"—"}% / Fuel ${x.fuel??"—"}%`;return `<button class="btn logbtn" data-i="${i}"><b>${x.id}</b> · ${escapeHtml(x.time)}<br><span class="muted">${rd}</span>${x.note?`<br>${escapeHtml(x.note)}`:""}</button>`}).join("");$("fullList").querySelectorAll("button").forEach(b=>b.onclick=()=>openEdit(Number(b.dataset.i)))}
+
+function persistAssets(){
+  localStorage.setItem("fieldOpsCustomAssets",JSON.stringify(customAssets));
+  localStorage.setItem("fieldOpsRemovedAssets",JSON.stringify(removedAssets));
+  rebuildAssets();
+}
+function renderAssetManager(){
+  const list=$("assetList");
+  if(!list)return;
+  const ids=Object.keys(A).sort((a,b)=>Number(a)-Number(b));
+  list.innerHTML=ids.map(id=>{
+    const a=A[id];
+    return `<div class="assetRow">
+      <b>${escapeHtml(id)}</b>
+      <span>${a[0]==="generator"?"Generator":"HVAC"}</span>
+      <span>${escapeHtml(a[1])}</span>
+      <button class="btn assetMini editAsset" data-id="${id}">Edit</button>
+      <button class="btn danger assetMini deleteAsset" data-id="${id}">Delete</button>
+    </div>`;
+  }).join("")||'<div class="muted">No assets loaded.</div>';
+
+  list.querySelectorAll(".editAsset").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.id,a=A[id];
+    $("assetManager").open=true;
+    $("assetNumber").value=id;
+    $("assetType").value=a[0];
+    $("assetSize").value=a[1];
+    $("assetFeedback").textContent="Editing "+id+". Change anything and tap Save Asset.";
+  });
+
+  list.querySelectorAll(".deleteAsset").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.id;
+    if(!confirm("Delete asset "+id+"? Any logged readings for this asset today will also be deleted."))return;
+    delete customAssets[id];
+    if(DEFAULT_ASSETS[id]&&!removedAssets.includes(id))removedAssets.push(id);
+    D.logs=D.logs.filter(x=>x.id!==id);
+    persistAssets();
+    save();
+    $("assetFeedback").textContent="Asset "+id+" deleted.";
+  });
+}
+function saveAssetFromForm(){
+  const id=$("assetNumber").value.trim();
+  const type=$("assetType").value;
+  let size=$("assetSize").value.trim();
+
+  if(!/^\d{5,7}$/.test(id)){
+    $("assetFeedback").textContent="Enter a 5–7 digit asset number.";
+    $("assetFeedback").className="warn";
+    return;
+  }
+  if(!size){
+    $("assetFeedback").textContent="Enter the unit size, like 330 kW or 40 ton.";
+    $("assetFeedback").className="warn";
+    return;
+  }
+
+  if(type==="generator"&&!/kw/i.test(size))size=size+" kW";
+  if(type==="hvac"&&!/ton/i.test(size))size=size+" ton";
+
+  customAssets[id]=[type,size];
+  removedAssets=removedAssets.filter(x=>x!==id);
+  persistAssets();
+
+  D.logs.forEach(x=>{
+    if(x.id===id){x.type=type;x.size=size;}
+  });
+  localStorage.setItem("fieldOpsState",JSON.stringify(state));
+
+  $("assetFeedback").textContent="Asset "+id+" saved.";
+  $("assetFeedback").className="good";
+  render();
+
+  const pending=pendingUnknownCommand;
+  pendingUnknownCommand="";
+  if(pending&&pending.includes(id)){
+    setTimeout(()=>parse(pending),50);
+  }
+}
+
+function renderHistory(){const keys=Object.keys(state.days).sort().reverse();$("history").innerHTML=keys.map(k=>`<div style="padding:10px 0;border-bottom:1px solid #29313b"><b>${k}</b> · ${state.days[k].logs?.length||0} entries · ${state.days[k].round||1} rounds</div>`).join("")}
+function render(){$("date").textContent=formatDayLabel(activeDay);$("count").textContent=D.logs.length+(D.logs.length===1?" reading":" readings");renderLast();renderTables();renderHistory();renderAssetManager()}
+
+function groupLogs(type){return rows(type).map(([id,a])=>({id,size:a[1],logs:D.logs.filter(x=>x.id===id).slice(0,3)})).filter(g=>g.logs.length)}
+function uniqIssues(groups){const out=[];groups.forEach(g=>{const notes=[...new Set(g.logs.map(x=>x.note).filter(Boolean))];notes.forEach(n=>out.push(`${g.id} — ${n}`));if(g.logs.some(x=>x.status==="down")&&!notes.length)out.push(`${g.id} — DOWN`)});return out}
+function drawText(ctx,text,x,y,size=28,weight="600",align="left",color="#f3f5f7"){ctx.save();ctx.font=`${weight} ${size}px Arial,sans-serif`;ctx.textAlign=align;ctx.textBaseline="middle";ctx.fillStyle=color;ctx.fillText(String(text),x,y);ctx.restore()}
+function line(ctx,x1,y1,x2,y2,color="#5b626d",w=1){ctx.save();ctx.strokeStyle=color;ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.restore()}
+function rr(ctx,x,y,w,h,r,fill,stroke){ctx.save();ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke()}ctx.restore()}
+function fitText(ctx,text,maxWidth,startSize,minSize=14,weight="600"){let s=startSize;ctx.font=`${weight} ${s}px Arial`;while(s>minSize&&ctx.measureText(text).width>maxWidth){s--;ctx.font=`${weight} ${s}px Arial`}return s}
+function loadLogo(){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=LOGO_DATA})}
+
+async function generateReportImage(){
+const hvac=groupLogs("hvac"),gens=groupLogs("generator"),hi=uniqIssues(hvac),gi=uniqIssues(gens);
+const W=1400,pad=46,rowH=48,headH=58;
+const hvacRows=hvac.reduce((n,g)=>n+g.logs.length,0),genRows=gens.reduce((n,g)=>n+g.logs.length,0);
+const hiH=Math.max(84,52+Math.max(1,hi.length)*38),giH=Math.max(84,52+Math.max(1,gi.length)*38);
+const H=420+86+headH+hvacRows*rowH+hvac.length*4+hiH+110+headH+genRows*rowH+gens.length*4+giH+110;
+const c=document.createElement("canvas");c.width=W;c.height=H;const ctx=c.getContext("2d");
+const bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,"#090b0f");bg.addColorStop(1,"#111419");ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+let y=30;try{const logo=await loadLogo(),ratio=logo.width/logo.height,lh=110,lw=lh*ratio;ctx.drawImage(logo,(W-lw)/2,y,lw,lh);y+=125}catch(e){y+=20}
+line(ctx,pad,y,W-pad,y,"#d2191f",3);y+=48;drawText(ctx,"FIELD OPS INSPECTION",W/2,y,58,"800","center","#f6f6f7");y+=72;
+drawText(ctx,"DATE:  "+formatDayLabel(activeDay),pad,y,27,"700");drawText(ctx,"SHIFT:  NIGHT",W/2,y,27,"700","center");drawText(ctx,"SITE:  BARBER LAKE",W-pad,y,27,"700","right");y+=42;line(ctx,pad,y,W-pad,y,"#d2191f",2);y+=54;
+function section(t){drawText(ctx,t,pad,y,40,"800");y+=54}
+function issues(title,arr){const h=Math.max(84,52+Math.max(1,arr.length)*38);rr(ctx,pad,y,W-pad*2,h,12,"#0c0f13","#5e666f");drawText(ctx,title,pad+24,y+28,24,"800");const items=arr.length?arr:["None"];items.forEach((t,i)=>drawText(ctx,"•  "+t,pad+34,y+66+i*38,21,"500"));y+=h}
+function table(type,groups){
+ const isH=type==="hvac";
+ const cols=isH?[["ASSET",.14],["SIZE",.11],["TIME",.13],["AMBIENT (°F)",.14],["SUPPLY (°F)",.13],["RETURN (°F)",.13],["ΔT (°F)",.09],["NOTES",.13]]:[["ASSET",.16],["SIZE",.16],["TIME",.18],["DEF (%)",.15],["FUEL (%)",.15],["NOTES",.20]];
+ const tw=W-pad*2,xs=[pad];let a=pad;cols.forEach(c=>{a+=tw*c[1];xs.push(a)});
+ ctx.fillStyle="#a40e13";ctx.fillRect(pad,y,tw,headH);
+ cols.forEach((c,i)=>{drawText(ctx,c[0],(xs[i]+xs[i+1])/2,y+headH/2,22,"800","center","#fff");line(ctx,xs[i],y,xs[i],y+headH,"#d9dde2",1)});line(ctx,xs.at(-1),y,xs.at(-1),y+headH,"#d9dde2",1);y+=headH;
+ groups.forEach(g=>{
+   const top=y,gh=g.logs.length*rowH;
+   drawText(ctx,g.id,(xs[0]+xs[1])/2,top+gh/2,27,"800","center");drawText(ctx,g.size.toUpperCase(),(xs[1]+xs[2])/2,top+gh/2,22,"700","center");
+   g.logs.forEach((x,ri)=>{
+     const cy=y+rowH/2;
+     if(isH){
+       const vals=[x.time,x.ambient??"—",x.supply??"—",x.ret??"—",x.delta??"—",x.note||(x.status==="down"?"DOWN":"—")];
+       const ctr=[(xs[2]+xs[3])/2,(xs[3]+xs[4])/2,(xs[4]+xs[5])/2,(xs[5]+xs[6])/2,(xs[6]+xs[7])/2,(xs[7]+xs[8])/2];
+       vals.forEach((v,j)=>{const sz=j===5?fitText(ctx,String(v),xs[8]-xs[7]-18,20):22;drawText(ctx,v,ctr[j],cy,sz,j===5?"600":"700","center",j===5&&x.status==="down"?"#ff777d":"#f1f3f5")});
+     }else{
+       const vals=[x.time,(x.def??"—")+"%",(x.fuel??"—")+"%",x.note||(x.status==="down"?"DOWN":"—")];
+       const ctr=[(xs[2]+xs[3])/2,(xs[3]+xs[4])/2,(xs[4]+xs[5])/2,(xs[5]+xs[6])/2];
+       vals.forEach((v,j)=>{const sz=j===3?fitText(ctx,String(v),xs[6]-xs[5]-18,20):22;drawText(ctx,v,ctr[j],cy,sz,j===3?"600":"700","center",j===3&&x.status==="down"?"#ff777d":"#f1f3f5")});
+     }
+     if(ri<g.logs.length-1)line(ctx,xs[2],y+rowH,xs.at(-1),y+rowH,"#555c65",1);y+=rowH;
+   });
+   xs.forEach(xx=>line(ctx,xx,top,xx,top+gh,"#6b727a",1));
+   line(ctx,pad,y,W-pad,y,"#e01b22",4);y+=4;
+ });
+}
+section("HVAC");table("hvac",hvac);y+=18;issues("HVAC ISSUES / NOTES",hi);y+=42;
+section("GENERATORS");table("generator",gens);y+=18;issues("GENERATOR ISSUES / NOTES",gi);y+=46;
+line(ctx,pad,y,W-pad,y,"#d2191f",2);y+=36;drawText(ctx,"SINEWAVE SERVICES  |  RELIABLE POWER. REAL SOLUTIONS.",W/2,y,21,"600","center","#c9cdd2");
+return new Promise(resolve=>c.toBlob(blob=>resolve(blob),"image/png",.96));
+}
+async function buildReport(){feedback("Generating report photo...");lastReportBlob=await generateReportImage();if(lastReportUrl)URL.revokeObjectURL(lastReportUrl);lastReportUrl=URL.createObjectURL(lastReportBlob);$("reportPreview").src=lastReportUrl;$("reportPreview").style.display="block";feedback("Report photo generated.");$("reportPreview").scrollIntoView({behavior:"smooth",block:"start"})}
+$("generateImage").onclick=buildReport;
+$("shareImage").onclick=async()=>{if(!lastReportBlob)await buildReport();const f=new File([lastReportBlob],`Field-Ops-Inspection-${activeDay}.png`,{type:"image/png"});if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:"Field Ops Inspection"})}catch(e){}}else feedback("Image sharing is not supported here. Use Save / Open Photo.",true)};
+$("saveImage").onclick=async()=>{if(!lastReportBlob)await buildReport();const a=document.createElement("a");a.href=lastReportUrl;a.download=`Field-Ops-Inspection-${activeDay}.png`;document.body.appendChild(a);a.click();a.remove()};
+
+$("saveAsset").onclick=saveAssetFromForm;
+$("process").onclick=()=>parse($("cmd").value);$("cmd").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();parse($("cmd").value)}};$("undo").onclick=()=>{if(!D.logs.length){feedback("Nothing to undo.",true);return}D.logs.pop();lastIndex=null;save();feedback("Last entry removed.")};$("editLast").onclick=()=>{if(!D.logs.length){feedback("Nothing to edit.",true);return}openEdit(D.logs.length-1)};$("addNote").onclick=()=>{if(!D.logs.length){feedback("Log an asset first.",true);return}openEdit(D.logs.length-1)};$("closeEditor").onclick=()=>$("editor").classList.add("hidden");$("hvacTab").onclick=()=>{$("hvacTable").classList.remove("hidden");$("genTable").classList.add("hidden");$("hvacTab").classList.add("active");$("genTab").classList.remove("active")};$("genTab").onclick=()=>{$("genTable").classList.remove("hidden");$("hvacTable").classList.add("hidden");$("genTab").classList.add("active");$("hvacTab").classList.remove("active")};$("nextRound").onclick=switchToNewDay;$("editShift").onclick=()=>{$("fullEditor").classList.remove("hidden");renderFull();$("fullEditor").scrollIntoView({behavior:"smooth",block:"start"})};$("closeFull").onclick=()=>$("fullEditor").classList.add("hidden");
+
+let rec=null,live="",listening=false;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;function stopListening(){if(rec&&listening){try{rec.stop()}catch(e){}}}
+if(SR){rec=new SR();rec.continuous=false;rec.interimResults=true;rec.lang="en-US";rec.onstart=()=>{listening=true;$("mic").classList.add("on");$("miclabel").textContent="LISTENING — TAP TO STOP";$("speech").textContent="Listening..."};rec.onresult=e=>{live=Array.from(e.results).map(r=>r[0].transcript).join(" ");$("speech").textContent=live;$("cmd").value=live};rec.onend=()=>{listening=false;$("mic").classList.remove("on");$("miclabel").textContent="TAP TO TALK";if(live.trim()){const s=live;live="";parse(s)}else live=""};rec.onerror=e=>{listening=false;$("mic").classList.remove("on");$("miclabel").textContent="TAP TO TALK";feedback(e.error==="not-allowed"||e.error==="service-not-allowed"?"Safari blocked browser speech recognition. Tap the text box and use the iPhone keyboard microphone.":"Voice error: "+e.error,true)};$("mic").onclick=()=>{if(listening){stopListening();return}live="";try{rec.start()}catch(e){feedback("Voice could not start. Use iPhone dictation in the text box.",true)}}}else{$("mic").onclick=()=>{$("cmd").focus();feedback("Browser voice recognition isn't available. Use the microphone on the iPhone keyboard.",true)}}
+if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+render();
+</script></body></html>
