@@ -23,7 +23,7 @@ button,input,textarea,select{font:inherit}
 .topRight{display:flex;align-items:center;gap:8px} .countpill{border:1px solid var(--line);padding:6px 9px;border-radius:999px;font-size:12px} .gear{width:42px;height:42px;padding:0;font-size:19px}
 .feedback{padding:8px 2px 0;min-height:25px}
 .screen{display:none} .screen.active{display:block}
-.hero{padding:18px} .hero h2{font-size:27px;letter-spacing:-.5px} .modegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.hero{padding:18px} .hero h2{font-size:27px;letter-spacing:-.5px} .modegrid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px}
 .mode{text-align:left;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:15px;padding:17px;min-height:126px}
 .mode strong{display:block;font-size:20px;margin-top:12px} .mode small{display:block;color:var(--muted);margin-top:5px} .modeIcon{font-size:26px}
 .sectionHead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px} .tabs{display:flex;gap:8px} .tab.active{background:var(--red);border-color:var(--red)}
@@ -31,6 +31,7 @@ button,input,textarea,select{font:inherit}
 .badDetect{border-color:#755a2b} .badge{font-size:11px;font-weight:850;padding:5px 8px;border-radius:999px;background:#26303a}
 .downrow{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-top:10px} .downrow input{width:24px;height:24px}
 .readinggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px} .readinggrid.gen{grid-template-columns:repeat(2,1fr)} .readingbox label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px} .readingbox input{text-align:center;font-size:20px;font-weight:850}
+.coolantControl{display:grid;grid-template-columns:54px 1fr;gap:15px;align-items:center;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#0d1218}.coolantTank{height:142px;border:3px solid #7d8995;border-radius:9px 9px 13px 13px;padding:4px;display:flex;align-items:flex-end;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),#394450 calc(25% - 1px),#394450 25%)}.coolantFill{width:100%;height:50%;border-radius:4px 4px 7px 7px;background:linear-gradient(#8ef2bb,#36b978);transition:height .12s}.coolantRange{width:100%;accent-color:var(--green)}.coolantValue{font-size:25px;font-weight:900}.coolantPresets{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:8px}.coolantPresets button{min-height:34px;padding:5px;font-size:11px}
 .bigsave{width:100%;padding:15px;margin-top:12px;font-size:17px}
 .voiceBox{background:#0c1116;border:1px solid var(--line);border-radius:14px;padding:18px;text-align:center} .voiceAsset{font-size:32px;font-weight:900} .voicePrompt{font-size:21px;font-weight:850;margin-top:14px} .voiceCtl{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
 .lastActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px} .lastActions .btn{font-size:13px;min-height:40px;padding:8px 10px}
@@ -57,7 +58,6 @@ button,input,textarea,select{font:inherit}
     <h2>Log a Reading</h2><div class="muted" style="margin-top:4px">Active shift · <span id="date"></span></div>
     <div class="modegrid">
       <button id="quickBtn" class="mode" type="button"><span class="modeIcon">⚡</span><strong>Quick Log</strong><small>Fast touch entry · offline</small></button>
-      <button id="voiceBtn" class="mode" type="button"><span class="modeIcon">🎙️</span><strong>Command Log</strong><small>Type or use keyboard dictation</small></button>
     </div>
   </div>
 
@@ -77,35 +77,18 @@ button,input,textarea,select{font:inherit}
         <div class="field"><label>ΔT</label><input id="qDelta" class="input" readonly></div>
       </div>
       <div id="qGen" class="hidden"><div class="readinggrid gen">
-        <div class="readingbox"><label>Fuel %</label><input id="qFuel" class="input" inputmode="decimal"></div>
+        <div class="readingbox"><label>Generator Fuel %</label><input id="qFuel" class="input" inputmode="decimal"></div>
         <div class="readingbox"><label>DEF %</label><input id="qDef" class="input" inputmode="decimal"></div>
-      </div></div>
+      </div>
+        <div id="qFuelCell" class="field hidden"><label id="qFuelCellLabel">Fuel Cell Fuel %</label><input id="qFcFuel" class="input" inputmode="decimal"></div>
+        <div class="coolantControl">
+          <div class="coolantTank" aria-hidden="true"><div id="qCoolantFill" class="coolantFill"></div></div>
+          <div><label for="qCoolant"><b>Coolant tank level</b> <span class="muted">(optional estimate)</span></label><div id="qCoolantValue" class="coolantValue">50%</div><input id="qCoolant" class="coolantRange" type="range" min="0" max="100" step="5" value="50"><div class="coolantPresets"><button class="btn coolantPreset" data-value="0" type="button">Empty</button><button class="btn coolantPreset" data-value="25" type="button">¼</button><button class="btn coolantPreset" data-value="50" type="button">½</button><button class="btn coolantPreset" data-value="75" type="button">¾</button><button class="btn coolantPreset" data-value="100" type="button">Full</button></div></div>
+        </div>
+      </div>
       <div class="field"><label>Note <span class="muted">(optional)</span></label><input id="qNote" class="input" placeholder="Only if needed"></div>
       <button id="qSave" class="btn primary bigsave" type="button">Save & Next</button>
     </div>
-  </div>
-
-  <div id="voicePanel" class="card hidden">
-    <div class="sectionHead">
-      <div>
-        <h2>Command Log</h2>
-        <div class="muted">Type the whole reading or tap the microphone on your iPhone keyboard.</div>
-      </div>
-      <button id="voiceClose" class="btn ghost" type="button">Close</button>
-    </div>
-
-    <div class="field">
-      <label>Reading command</label>
-      <input id="vCommand" class="input" autocomplete="off" autocapitalize="off"
-        placeholder="211053 ambient 101 supply 65 return 82">
-    </div>
-
-    <div class="muted" style="margin-top:8px">
-      Generator: 194986 fuel 34 DEF 79<br>
-      HVAC: 211053 ambient 101 supply 65 return 82
-    </div>
-
-    <button id="vSave" class="btn primary bigsave" type="button">Process Reading</button>
   </div>
 
   <div class="card">
@@ -138,6 +121,7 @@ button,input,textarea,select{font:inherit}
     <div class="sectionHead"><div><h2>Asset Manager</h2><div class="muted">Equipment setup</div></div><button id="settingsDone" class="btn" type="button">Done</button></div>
     <div class="field"><label>Asset number</label><input id="aNumber" class="input" inputmode="numeric"></div>
     <div class="editgrid"><div class="field"><label>Type</label><select id="aType" class="select"><option value="hvac">HVAC</option><option value="generator">Generator</option></select></div><div class="field"><label>Size</label><input id="aSize" class="input" placeholder="40 ton / 330 kW"></div></div>
+    <div id="aFuelCellField" class="field hidden"><label>Fuel-cell asset number <span class="muted">(optional)</span></label><input id="aFuelCell" class="input" inputmode="numeric" placeholder="Enter once to link it"></div>
     <button id="aSave" class="btn primary" type="button" style="width:100%;margin-top:10px">Save Asset</button><div id="aFeedback" class="muted" style="margin-top:8px"></div><div id="assetList" style="margin-top:12px"></div>
   </div>
 </section>
@@ -166,6 +150,7 @@ let state; try{state=JSON.parse(localStorage.getItem("fieldOpsState")||"null")}c
 if(!state||!state.days)state={days:{}};
 let custom={}; try{custom=JSON.parse(localStorage.getItem("fieldOpsCustomAssets")||"{}")||{}}catch(e){}
 let removed=[]; try{removed=JSON.parse(localStorage.getItem("fieldOpsRemovedAssets")||"[]")||[]}catch(e){}
+let generatorMeta={}; try{generatorMeta=JSON.parse(localStorage.getItem("fieldOpsGeneratorMeta")||"{}")||{}}catch(e){}
 let assets={};
 function rebuildAssets(){assets={...DEFAULT_ASSETS,...custom};removed.forEach(id=>delete assets[id])}
 rebuildAssets();
@@ -183,6 +168,7 @@ function persist(){
   localStorage.setItem("fieldOpsActiveDay",activeDay);
   localStorage.setItem("fieldOpsCustomAssets",JSON.stringify(custom));
   localStorage.setItem("fieldOpsRemovedAssets",JSON.stringify(removed));
+  localStorage.setItem("fieldOpsGeneratorMeta",JSON.stringify(generatorMeta));
 }
 function save(){persist();render()}
 
@@ -206,11 +192,16 @@ function orderedAssetRows(type){
     return ai-bi || Number(a)-Number(b);
   });
 }
+function assetLabel(id){const fc=generatorMeta[id]?.fuelCellAsset;return fc?`${id} / FC ${fc}`:id}
+function generatorReading(x){
+  const fc=x.fuelCellAsset?` · FC ${esc(x.fuelCellAsset)} Fuel ${x.fcFuel??"—"}%`:"";
+  return `Gen Fuel ${x.fuel??"—"}% · DEF ${x.def??"—"}%${fc} · Coolant ${x.coolant??"—"}%`;
+}
 function renderLast(){
   const x=lastIndex!==null?D.logs[lastIndex]:D.logs.at(-1);
   if(!x){$("lastEntry").textContent="Nothing logged yet.";$("lastStatus").textContent="None";return}
-  const r=x.type==="hvac"?`Ambient ${x.ambient??"—"} · Supply ${x.supply??"—"} · Return ${x.ret??"—"} · ΔT ${x.delta??"—"}`:`Fuel ${x.fuel??"—"}% · DEF ${x.def??"—"}%`;
-  $("lastEntry").innerHTML=`<b>${esc(x.id)}</b> · ${esc(x.size)} · ${esc(x.time)}<br>${r}${x.note?`<br><span class="warn">Note: ${esc(x.note)}</span>`:""}`;
+  const r=x.type==="hvac"?`Ambient ${x.ambient??"—"} · Supply ${x.supply??"—"} · Return ${x.ret??"—"} · ΔT ${x.delta??"—"}`:generatorReading(x);
+  $("lastEntry").innerHTML=`<b>${esc(x.type==="generator"?assetLabel(x.id):x.id)}</b> · ${esc(x.size)} · ${esc(x.time)}<br>${r}${x.note?`<br><span class="warn">Note: ${esc(x.note)}</span>`:""}`;
   $("lastStatus").textContent=x.status==="down"?"DOWN":"Saved";
 }
 function renderTables(){
@@ -219,8 +210,8 @@ function renderTables(){
     orderedAssetRows(type).forEach(([id,a])=>{
       const xs=D.logs.filter(x=>x.id===id),notes=[...new Set(xs.map(x=>x.note).filter(Boolean))];
       const st=(xs.some(x=>x.status==="down")?'<span class="bad">DOWN</span> ':"")+notes.map(esc).join(" · ");
-      const rd=xs.map(x=>x.type==="hvac"?`${esc(x.time)}: A ${x.ambient??"—"} / S ${x.supply??"—"} / R ${x.ret??"—"} / Δ ${x.delta??"—"}`:`${esc(x.time)}: Fuel ${x.fuel??"—"}% / DEF ${x.def??"—"}%`).join("<br>");
-      h+=`<tr><td><b>${esc(id)}</b></td><td>${esc(a[1])}</td><td class="note">${st}</td><td class="note">${rd}</td></tr>`;
+      const rd=xs.map(x=>x.type==="hvac"?`${esc(x.time)}: A ${x.ambient??"—"} / S ${x.supply??"—"} / R ${x.ret??"—"} / Δ ${x.delta??"—"}`:`${esc(x.time)}: ${generatorReading(x)}`).join("<br>");
+      h+=`<tr><td><b>${esc(type==="generator"?assetLabel(id):id)}</b></td><td>${esc(a[1])}</td><td class="note">${st}</td><td class="note">${rd}</td></tr>`;
     });
     return h+"</table>";
   }
@@ -238,14 +229,25 @@ function detectQuick(){
   const id=$("qAsset").value.trim(),a=assets[id];
   $("qKnown").classList.toggle("hidden",!a);$("qUnknown").classList.toggle("hidden",!id||!!a);$("qFields").classList.toggle("hidden",!a);
   if(!a)return;
-  $("qKnownId").textContent=id;$("qKnownSize").textContent=a[1];$("qKnownType").textContent=a[0]==="hvac"?"HVAC":"GENERATOR";
+  const fc=generatorMeta[id]?.fuelCellAsset;
+  $("qKnownId").textContent=a[0]==="generator"?assetLabel(id):id;$("qKnownSize").textContent=a[1];$("qKnownType").textContent=a[0]==="hvac"?"HVAC":"GENERATOR";
   $("qHvac").classList.toggle("hidden",a[0]!=="hvac");$("qGen").classList.toggle("hidden",a[0]!=="generator");
+  $("qFuelCell").classList.toggle("hidden",a[0]!=="generator"||!fc);
+  $("qFuelCellLabel").textContent=fc?`Fuel Cell ${fc} Fuel %`:"Fuel Cell Fuel %";
 }
-$("quickBtn").onclick=()=>{$("quickPanel").classList.remove("hidden");$("voicePanel").classList.add("hidden");$("qAsset").focus()};
+$("quickBtn").onclick=()=>{$("quickPanel").classList.remove("hidden");$("qAsset").focus()};
 $("quickClose").onclick=()=>$("quickPanel").classList.add("hidden");
 $("qAsset").addEventListener("input",detectQuick);
 $("qSupply").addEventListener("input",()=>{const s=num("qSupply"),r=num("qReturn");$("qDelta").value=s!=null&&r!=null?Math.round((r-s)*10)/10:""});
 $("qReturn").addEventListener("input",()=>{const s=num("qSupply"),r=num("qReturn");$("qDelta").value=s!=null&&r!=null?Math.round((r-s)*10)/10:""});
+function updateCoolant(touched=true){
+  if(touched)$("qCoolant").dataset.touched="1";
+  const value=Number($("qCoolant").value),has=$("qCoolant").dataset.touched==="1";
+  $("qCoolantValue").textContent=has?value+"%":"Not logged";$("qCoolantFill").style.height=(has?value:0)+"%";
+}
+$("qCoolant").addEventListener("input",()=>updateCoolant());
+document.querySelectorAll(".coolantPreset").forEach(b=>b.onclick=()=>{$("qCoolant").value=b.dataset.value;updateCoolant()});
+updateCoolant(false);
 $("qAdd").onclick=()=>{$("aNumber").value=$("qAsset").value.trim();showScreen("settingsScreen");$("aNumber").focus()};
 $("qSave").onclick=()=>{
   const id=$("qAsset").value.trim(),a=assets[id];if(!a){feedback("Add the asset first.",true);return}
@@ -254,87 +256,14 @@ $("qSave").onclick=()=>{
     x.ambient=num("qAmbient");x.supply=num("qSupply");x.ret=num("qReturn");x.delta=x.ret!=null&&x.supply!=null?Math.round((x.ret-x.supply)*10)/10:null;
     if(!down&&(x.ambient==null||x.supply==null||x.ret==null)){feedback("Enter Ambient, Supply, Return or mark Down.",true);return}
   }else{
-    x.fuel=num("qFuel");x.def=num("qDef");if(!down&&(x.fuel==null||x.def==null)){feedback("Enter Fuel and DEF or mark Down.",true);return}
+    const fc=generatorMeta[id]?.fuelCellAsset;
+    x.fuel=num("qFuel");x.def=num("qDef");x.coolant=$("qCoolant").dataset.touched==="1"?Number($("qCoolant").value):null;
+    if(fc){x.fuelCellAsset=fc;x.fcFuel=num("qFcFuel")}
+    if(!down&&(x.fuel==null||x.def==null||(fc&&x.fcFuel==null))){feedback(fc?"Enter Generator Fuel, DEF, and Fuel Cell Fuel or mark Down.":"Enter Generator Fuel and DEF or mark Down.",true);return}
   }
   D.logs.push(x);lastIndex=D.logs.length-1;save();feedback(id+" saved.");
-  ["qAmbient","qSupply","qReturn","qFuel","qDef","qNote"].forEach(k=>$(k).value="");$("qDelta").value="";$("qDown").checked=false;$("qAsset").value="";detectQuick();$("qAsset").focus();
+  ["qAmbient","qSupply","qReturn","qFuel","qDef","qFcFuel","qNote"].forEach(k=>$(k).value="");$("qDelta").value="";$("qCoolant").value="50";delete $("qCoolant").dataset.touched;updateCoolant(false);$("qDown").checked=false;$("qAsset").value="";detectQuick();$("qAsset").focus();
 };
-
-
-
-function normalizeCommand(raw){
-  return String(raw||"").toLowerCase()
-    .replace(/\bdeaf\b/g,"def")
-    .replace(/\bdeath\b/g,"def")
-    .replace(/\bd\s*e\s*f\b/g,"def")
-    .replace(/\bambien\b/g,"ambient")
-    .replace(/\bambiant\b/g,"ambient")
-    .replace(/\bambience\b/g,"ambient")
-    .replace(/\bsupplied\b/g,"supply")
-    .replace(/\bsupplies\b/g,"supply")
-    .replace(/\breturned\b/g,"return")
-    .replace(/[,:;]/g," ")
-    .replace(/\s+/g," ")
-    .trim();
-}
-function valueNear(text,aliases){
-  const names=aliases.join("|");
-  let m=text.match(new RegExp("\\b(?:"+names+")\\b\\s*(?:is|at|of|reads|reading)?\\s*(-?\\d+(?:\\.\\d+)?)\\s*%?","i"));
-  if(m)return Number(m[1]);
-  m=text.match(new RegExp("\\b(-?\\d+(?:\\.\\d+)?)\\s*%?\\s*(?:"+names+")\\b","i"));
-  if(m)return Number(m[1]);
-  return null;
-}
-function processCommand(raw){
-  const original=String(raw||"").trim();
-  if(!original){feedback("Type or dictate a reading first.",true);return;}
-  const t=normalizeCommand(original);
-
-  const idMatch=t.match(/\b\d{5,7}\b/);
-  if(!idMatch){feedback("No asset number detected.",true);return;}
-  const id=idMatch[0],a=assets[id];
-  if(!a){feedback("Asset "+id+" is not loaded. Add it in Asset Manager.",true);return;}
-
-  const down=/\b(down|offline|not running|failed)\b/.test(t);
-  const x={id,type:a[0],size:a[1],time:timeNow(),status:down?"down":"running",note:""};
-
-  if(a[0]==="hvac"){
-    x.ambient=valueNear(t,["ambient"]);
-    x.supply=valueNear(t,["supply","duct","out"]);
-    x.ret=valueNear(t,["return","in"]);
-    x.delta=x.ret!=null&&x.supply!=null?Math.round((x.ret-x.supply)*10)/10:null;
-    if(!down && x.ambient==null && x.supply==null && x.ret==null){
-      feedback("I found the HVAC asset but no temperatures.",true);return;
-    }
-  }else{
-    x.fuel=valueNear(t,["fuel"]);
-    x.def=valueNear(t,["def"]);
-    if(!down && x.fuel==null && x.def==null){
-      feedback("I found the generator but no Fuel or DEF.",true);return;
-    }
-  }
-
-  D.logs.push(x);
-  lastIndex=D.logs.length-1;
-  save();
-  feedback(id+" saved.");
-  $("vCommand").value="";
-  $("vCommand").focus();
-}
-
-$("voiceBtn").onclick=()=>{
-  $("voicePanel").classList.remove("hidden");
-  $("quickPanel").classList.add("hidden");
-  setTimeout(()=>$("vCommand").focus(),50);
-};
-$("voiceClose").onclick=()=>$("voicePanel").classList.add("hidden");
-$("vSave").onclick=()=>processCommand($("vCommand").value);
-$("vCommand").addEventListener("keydown",e=>{
-  if(e.key==="Enter"){
-    e.preventDefault();
-    processCommand($("vCommand").value);
-  }
-});
 $("undo").onclick=()=>{if(!D.logs.length){feedback("Nothing to undo.",true);return}D.logs.pop();lastIndex=null;save();feedback("Last entry removed.")};
 $("editLast").onclick=()=>{if(!D.logs.length){feedback("Nothing to edit.",true);return}openEditor(D.logs.length-1)};
 $("addNote").onclick=()=>{if(!D.logs.length){feedback("Nothing to edit.",true);return}openEditor(D.logs.length-1)};
@@ -344,15 +273,15 @@ function openEditor(i){
   const x=D.logs[i];if(!x)return;showScreen("shiftScreen");$("editor").classList.remove("hidden");
   let h=`<div class="field"><label>Time</label><input id="eTime" class="input" value="${esc(x.time)}"></div><div class="field"><label>Status</label><select id="eStatus" class="select"><option value="running">Running</option><option value="down">Down</option></select></div>`;
   if(x.type==="hvac")h+=`<div class="editgrid"><div class="field"><label>Ambient</label><input id="eA" class="input" value="${x.ambient??""}"></div><div class="field"><label>Supply</label><input id="eS" class="input" value="${x.supply??""}"></div><div class="field"><label>Return</label><input id="eR" class="input" value="${x.ret??""}"></div></div>`;
-  else h+=`<div class="editgrid"><div class="field"><label>Fuel</label><input id="eFuel" class="input" value="${x.fuel??""}"></div><div class="field"><label>DEF</label><input id="eDef" class="input" value="${x.def??""}"></div></div>`;
+  else h+=`<div class="editgrid"><div class="field"><label>Generator Fuel</label><input id="eFuel" class="input" value="${x.fuel??""}"></div><div class="field"><label>DEF</label><input id="eDef" class="input" value="${x.def??""}"></div><div class="field"><label>Coolant %</label><input id="eCoolant" class="input" value="${x.coolant??""}"></div>${x.fuelCellAsset?`<div class="field"><label>FC ${esc(x.fuelCellAsset)} Fuel %</label><input id="eFcFuel" class="input" value="${x.fcFuel??""}"></div>`:""}</div>`;
   h+=`<div class="field"><label>Note</label><textarea id="eNote" class="textarea">${esc(x.note||"")}</textarea></div><div class="actions" style="margin-top:10px"><button id="eSave" class="btn primary">Save</button><button id="eDelete" class="btn danger">Delete</button></div>`;
   $("editorFields").innerHTML=h;$("eStatus").value=x.status;
-  $("eSave").onclick=()=>{x.time=$("eTime").value.trim()||x.time;x.status=$("eStatus").value;x.note=$("eNote").value.trim();if(x.type==="hvac"){x.ambient=nOrNull($("eA").value);x.supply=nOrNull($("eS").value);x.ret=nOrNull($("eR").value);x.delta=x.ret!=null&&x.supply!=null?Math.round((x.ret-x.supply)*10)/10:null}else{x.fuel=nOrNull($("eFuel").value);x.def=nOrNull($("eDef").value)}lastIndex=i;save();$("editor").classList.add("hidden");feedback("Updated.")};
+  $("eSave").onclick=()=>{x.time=$("eTime").value.trim()||x.time;x.status=$("eStatus").value;x.note=$("eNote").value.trim();if(x.type==="hvac"){x.ambient=nOrNull($("eA").value);x.supply=nOrNull($("eS").value);x.ret=nOrNull($("eR").value);x.delta=x.ret!=null&&x.supply!=null?Math.round((x.ret-x.supply)*10)/10:null}else{x.fuel=nOrNull($("eFuel").value);x.def=nOrNull($("eDef").value);x.coolant=nOrNull($("eCoolant").value);if(x.fuelCellAsset)x.fcFuel=nOrNull($("eFcFuel").value)}lastIndex=i;save();$("editor").classList.add("hidden");feedback("Updated.")};
   $("eDelete").onclick=()=>{if(confirm("Delete this entry?")){D.logs.splice(i,1);lastIndex=null;save();$("editor").classList.add("hidden")}};
 }
 $("editorClose").onclick=()=>$("editor").classList.add("hidden");
 function renderFull(){
-  $("fullList").innerHTML=D.logs.length?D.logs.map((x,i)=>`<button class="btn logbtn" data-i="${i}"><b>${esc(x.id)}</b> · ${esc(x.time)}<br><span class="muted">${x.type==="hvac"?`A ${x.ambient??"—"} / S ${x.supply??"—"} / R ${x.ret??"—"}`:`Fuel ${x.fuel??"—"}% / DEF ${x.def??"—"}%`}</span></button>`).join(""):'<div class="muted">No entries yet.</div>';
+  $("fullList").innerHTML=D.logs.length?D.logs.map((x,i)=>`<button class="btn logbtn" data-i="${i}"><b>${esc(x.type==="generator"?assetLabel(x.id):x.id)}</b> · ${esc(x.time)}<br><span class="muted">${x.type==="hvac"?`A ${x.ambient??"—"} / S ${x.supply??"—"} / R ${x.ret??"—"}`:generatorReading(x)}</span></button>`).join(""):'<div class="muted">No entries yet.</div>';
   $("fullList").querySelectorAll("button").forEach(b=>b.onclick=()=>openEditor(Number(b.dataset.i)));
 }
 $("editShift").onclick=()=>{$("fullEditor").classList.remove("hidden");renderFull()};$("fullClose").onclick=()=>$("fullEditor").classList.add("hidden");
@@ -363,16 +292,18 @@ function renderHistory(){
   $("historyList").innerHTML=keys.map(k=>{const c=state.days[k].logs?.length||0;return `<div class="historyItem"><b>${dayLabel(k)}</b> · ${c} entries ${k===activeDay?'<span class="good">ACTIVE</span>':""}<div class="historyActions"><button class="btn viewDay" data-k="${k}">View</button>${k===activeDay?"":`<button class="btn primary resumeDay" data-k="${k}">Resume</button>`}</div></div>`}).join("");
   $("historyList").querySelectorAll(".viewDay").forEach(b=>b.onclick=()=>viewDay(b.dataset.k));$("historyList").querySelectorAll(".resumeDay").forEach(b=>b.onclick=()=>resumeDay(b.dataset.k));
 }
-function viewDay(k){const logs=state.days[k].logs||[];$("historyViewer").classList.remove("hidden");$("historyTitle").textContent=dayLabel(k);$("historyBody").innerHTML=logs.length?logs.map(x=>`<div class="historyLog"><b>${esc(x.id)}</b> · ${esc(x.time)}<br><span class="muted">${x.type==="hvac"?`A ${x.ambient??"—"} / S ${x.supply??"—"} / R ${x.ret??"—"} / Δ ${x.delta??"—"}`:`Fuel ${x.fuel??"—"}% / DEF ${x.def??"—"}%`}</span>${x.note?`<br>${esc(x.note)}`:""}</div>`).join(""):'<div class="muted">No readings.</div>'}
+function viewDay(k){const logs=state.days[k].logs||[];$("historyViewer").classList.remove("hidden");$("historyTitle").textContent=dayLabel(k);$("historyBody").innerHTML=logs.length?logs.map(x=>`<div class="historyLog"><b>${esc(x.type==="generator"?assetLabel(x.id):x.id)}</b> · ${esc(x.time)}<br><span class="muted">${x.type==="hvac"?`A ${x.ambient??"—"} / S ${x.supply??"—"} / R ${x.ret??"—"} / Δ ${x.delta??"—"}`:generatorReading(x)}</span>${x.note?`<br>${esc(x.note)}`:""}</div>`).join(""):'<div class="muted">No readings.</div>'}
 function resumeDay(k){if(!confirm("Resume this shift?"))return;activeDay=k;D=state.days[k];lastIndex=null;save();showScreen("shiftScreen")}
 $("historyClose").onclick=()=>$("historyViewer").classList.add("hidden");
 
 function renderAssets(){
-  $("assetList").innerHTML=Object.keys(assets).sort((a,b)=>Number(a)-Number(b)).map(id=>`<div class="assetRow"><div><b>${esc(id)}</b><div class="muted">${assets[id][0]==="hvac"?"HVAC":"Generator"} · ${esc(assets[id][1])}</div></div><button class="btn editAsset" data-id="${id}">Edit</button><button class="btn danger delAsset" data-id="${id}">Delete</button></div>`).join("");
-  $("assetList").querySelectorAll(".editAsset").forEach(b=>b.onclick=()=>{const id=b.dataset.id;$("aNumber").value=id;$("aType").value=assets[id][0];$("aSize").value=assets[id][1]});
-  $("assetList").querySelectorAll(".delAsset").forEach(b=>b.onclick=()=>{const id=b.dataset.id;if(!confirm("Delete "+id+"?"))return;delete custom[id];if(DEFAULT_ASSETS[id]&&!removed.includes(id))removed.push(id);D.logs=D.logs.filter(x=>x.id!==id);rebuildAssets();save()});
+  $("assetList").innerHTML=Object.keys(assets).sort((a,b)=>Number(a)-Number(b)).map(id=>`<div class="assetRow"><div><b>${esc(assets[id][0]==="generator"?assetLabel(id):id)}</b><div class="muted">${assets[id][0]==="hvac"?"HVAC":"Generator"} · ${esc(assets[id][1])}</div></div><button class="btn editAsset" data-id="${id}">Edit</button><button class="btn danger delAsset" data-id="${id}">Delete</button></div>`).join("");
+  $("assetList").querySelectorAll(".editAsset").forEach(b=>b.onclick=()=>{const id=b.dataset.id;$("aNumber").value=id;$("aType").value=assets[id][0];$("aSize").value=assets[id][1];$("aFuelCell").value=generatorMeta[id]?.fuelCellAsset||"";toggleFuelCellField()});
+  $("assetList").querySelectorAll(".delAsset").forEach(b=>b.onclick=()=>{const id=b.dataset.id;if(!confirm("Delete "+id+"?"))return;delete custom[id];delete generatorMeta[id];if(DEFAULT_ASSETS[id]&&!removed.includes(id))removed.push(id);D.logs=D.logs.filter(x=>x.id!==id);rebuildAssets();save()});
 }
-$("aSave").onclick=()=>{const id=$("aNumber").value.trim(),type=$("aType").value,size=$("aSize").value.trim();if(!/^\d{5,7}$/.test(id)||!size){$("aFeedback").textContent="Enter a valid asset number and size.";return}custom[id]=[type,size];removed=removed.filter(x=>x!==id);rebuildAssets();persist();renderAssets();$("aFeedback").textContent=id+" saved.";feedback(id+" added.");$("aNumber").value="";$("aSize").value=""};
+function toggleFuelCellField(){$("aFuelCellField").classList.toggle("hidden",$("aType").value!=="generator")}
+$("aType").addEventListener("change",toggleFuelCellField);toggleFuelCellField();
+$("aSave").onclick=()=>{const id=$("aNumber").value.trim(),type=$("aType").value,size=$("aSize").value.trim(),fc=$("aFuelCell").value.trim();if(!/^\d{5,7}$/.test(id)||!size){$("aFeedback").textContent="Enter a valid asset number and size.";return}if(type==="generator"&&fc&&!/^\d{1,12}$/.test(fc)){$("aFeedback").textContent="Enter a valid fuel-cell asset number or leave it blank.";return}custom[id]=[type,size];if(type==="generator"&&fc)generatorMeta[id]={fuelCellAsset:fc};else delete generatorMeta[id];removed=removed.filter(x=>x!==id);rebuildAssets();persist();renderAssets();$("aFeedback").textContent=(type==="generator"&&fc?`${id} / FC ${fc}`:id)+" saved.";feedback(id+" added.");$("aNumber").value="";$("aSize").value="";$("aFuelCell").value=""};
 
 
 async function makeReport(){
@@ -436,9 +367,9 @@ async function makeReport(){
   function drawSection(title,data,type){
     ctx.fillStyle="#f6f7f9";ctx.textAlign="left";ctx.font="bold 29px Arial";ctx.fillText(title,M,y);y+=28;
     const hvac=type==="hvac";
-    const widths=hvac?[122,108,120,124,124,124,96,TW-818]:[150,135,165,145,145,TW-740];
+    const widths=hvac?[122,108,120,124,124,124,96,TW-818]:[170,90,100,100,90,110,100,TW-760];
     const headers=hvac?["ASSET","SIZE","TIME","AMBIENT (°F)","SUPPLY (°F)","RETURN (°F)","ΔT (°F)","NOTES"]:
-                       ["ASSET","SIZE","TIME","DEF (%)","FUEL (%)","NOTES"];
+                       ["GEN / FC","SIZE","TIME","GEN FUEL","DEF","FC FUEL","COOLANT","NOTES"];
     ctx.fillStyle="#b90f16";ctx.fillRect(M,y,TW,headH);
     let xx=M;
     headers.forEach((h,i)=>{cell(h,xx,y,widths[i],headH,16,"700");xx+=widths[i];if(i<headers.length-1)line(xx,y,xx,y+headH,"#ff7478",1)});
@@ -449,7 +380,7 @@ async function makeReport(){
       const inline=(r.note||"").trim()||(r.status==="down"?"DOWN":"");
       const vals=hvac
         ? [idx===0?g.id:"",idx===0?g.size:"",r.time,r.ambient??"—",r.supply??"—",r.ret??"—",r.delta??"—",inline]
-        : [idx===0?g.id:"",idx===0?g.size:"",r.time,r.def??"—",r.fuel??"—",inline];
+        : [idx===0?assetLabel(g.id):"",idx===0?g.size:"",r.time,r.fuel??"—",r.def??"—",r.fcFuel??"—",r.coolant??"—",inline];
       vals.forEach((v,i)=>{
         const last=i===vals.length-1;
         cell(v,xx,y,widths[i],rowH,last?15:17,(i===0||i===1)?"700":"400",last?"left":"center");
