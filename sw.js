@@ -1,4 +1,4 @@
-const CACHE='field-ops-v24';
+const CACHE='field-ops-v25';
 self.addEventListener('install',e=>self.skipWaiting());
 self.addEventListener('activate',e=>e.waitUntil(
   caches.keys()

@@ -32,6 +32,7 @@ button,input,textarea,select{font:inherit}
 .downrow{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-top:10px} .downrow input{width:24px;height:24px}
 .readinggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px} .readinggrid.gen{grid-template-columns:repeat(2,1fr)} .readingbox label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px} .readingbox input{text-align:center;font-size:20px;font-weight:850}
 .coolantControl{display:grid;grid-template-columns:54px 1fr;gap:15px;align-items:center;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#0d1218}.coolantTank{height:142px;border:3px solid #7d8995;border-radius:9px 9px 13px 13px;padding:4px;display:flex;align-items:flex-end;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),#394450 calc(25% - 1px),#394450 25%)}.coolantFill{width:100%;height:50%;border-radius:4px 4px 7px 7px;background:linear-gradient(#8ef2bb,#36b978);transition:height .12s}.coolantRange{width:100%;accent-color:var(--green)}.coolantValue{font-size:25px;font-weight:900}.coolantPresets{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-top:8px}.coolantPresets button{min-height:34px;padding:5px;font-size:11px}
+.fcSetup{margin-top:12px}.fcButtons{display:flex;gap:7px;flex-wrap:wrap}.fcEditor{margin-top:8px;padding:11px;border:1px solid var(--line);border-radius:11px;background:#0d1218}.fcEditorActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .bigsave{width:100%;padding:15px;margin-top:12px;font-size:17px}
 .voiceBox{background:#0c1116;border:1px solid var(--line);border-radius:14px;padding:18px;text-align:center} .voiceAsset{font-size:32px;font-weight:900} .voicePrompt{font-size:21px;font-weight:850;margin-top:14px} .voiceCtl{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
 .lastActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px} .lastActions .btn{font-size:13px;min-height:40px;padding:8px 10px}
@@ -80,6 +81,8 @@ button,input,textarea,select{font:inherit}
         <div class="readingbox"><label>Generator Fuel %</label><input id="qFuel" class="input" inputmode="decimal"></div>
         <div class="readingbox"><label>DEF %</label><input id="qDef" class="input" inputmode="decimal"></div>
       </div>
+        <div id="qFuelCellSetup" class="assetDetect fcSetup"><div><b id="qFuelCellSummary">No fuel cell linked</b><div class="muted">Save the FC asset once for this generator.</div></div><div class="fcButtons"><button id="qFuelCellAction" class="btn" type="button">Add FC</button><button id="qFuelCellRemove" class="btn danger hidden" type="button">Remove</button></div></div>
+        <div id="qFuelCellEditor" class="fcEditor hidden"><label for="qFcAsset"><b>Fuel-cell asset number</b></label><input id="qFcAsset" class="input" inputmode="numeric" placeholder="Enter FC asset"><div class="fcEditorActions"><button id="qFuelCellSave" class="btn primary" type="button">Save Link</button><button id="qFuelCellCancel" class="btn" type="button">Cancel</button></div></div>
         <div id="qFuelCell" class="field hidden"><label id="qFuelCellLabel">Fuel Cell Fuel %</label><input id="qFcFuel" class="input" inputmode="decimal"></div>
         <div class="coolantControl">
           <div class="coolantTank" aria-hidden="true"><div id="qCoolantFill" class="coolantFill"></div></div>
@@ -234,6 +237,10 @@ function detectQuick(){
   $("qHvac").classList.toggle("hidden",a[0]!=="hvac");$("qGen").classList.toggle("hidden",a[0]!=="generator");
   $("qFuelCell").classList.toggle("hidden",a[0]!=="generator"||!fc);
   $("qFuelCellLabel").textContent=fc?`Fuel Cell ${fc} Fuel %`:"Fuel Cell Fuel %";
+  $("qFuelCellSummary").textContent=fc?`Linked FC ${fc}`:"No fuel cell linked";
+  $("qFuelCellAction").textContent=fc?"Edit FC":"Add FC";
+  $("qFuelCellRemove").classList.toggle("hidden",!fc);
+  $("qFuelCellEditor").classList.add("hidden");
 }
 $("quickBtn").onclick=()=>{$("quickPanel").classList.remove("hidden");$("qAsset").focus()};
 $("quickClose").onclick=()=>$("quickPanel").classList.add("hidden");
@@ -249,6 +256,10 @@ $("qCoolant").addEventListener("input",()=>updateCoolant());
 document.querySelectorAll(".coolantPreset").forEach(b=>b.onclick=()=>{$("qCoolant").value=b.dataset.value;updateCoolant()});
 updateCoolant(false);
 $("qAdd").onclick=()=>{$("aNumber").value=$("qAsset").value.trim();showScreen("settingsScreen");$("aNumber").focus()};
+$("qFuelCellAction").onclick=()=>{const id=$("qAsset").value.trim();$("qFcAsset").value=generatorMeta[id]?.fuelCellAsset||"";$("qFuelCellEditor").classList.remove("hidden");$("qFcAsset").focus()};
+$("qFuelCellCancel").onclick=()=>$("qFuelCellEditor").classList.add("hidden");
+$("qFuelCellSave").onclick=()=>{const id=$("qAsset").value.trim(),fc=$("qFcAsset").value.trim();if(!assets[id]||assets[id][0]!=="generator"){feedback("Select a generator first.",true);return}if(!/^\d{1,12}$/.test(fc)){feedback("Enter a valid fuel-cell asset number.",true);return}generatorMeta[id]={fuelCellAsset:fc};persist();detectQuick();renderAssets();feedback(`FC ${fc} linked to generator ${id}.`)};
+$("qFuelCellRemove").onclick=()=>{const id=$("qAsset").value.trim(),fc=generatorMeta[id]?.fuelCellAsset;if(!fc)return;if(!confirm(`Remove FC ${fc} from generator ${id}?`))return;delete generatorMeta[id];persist();$("qFcFuel").value="";detectQuick();renderAssets();feedback(`FC link removed from generator ${id}.`)};
 $("qSave").onclick=()=>{
   const id=$("qAsset").value.trim(),a=assets[id];if(!a){feedback("Add the asset first.",true);return}
   const down=$("qDown").checked,x={id,type:a[0],size:a[1],time:timeNow(),status:down?"down":"running",note:$("qNote").value.trim()};
